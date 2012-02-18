@@ -1633,8 +1633,8 @@ public final class Settings {
         /**
          * Whether the system has booted previously or not
          *
-         * null = this is system first boot
-         * 0 = this is not system first boot
+         * null = system first boot
+         * not null (usually "1") = not system first boot
          */
         public static final String SYSTEM_FIRST_BOOT = "system_first_boot";
 
@@ -1642,8 +1642,8 @@ public final class Settings {
          * Whether the setup wizard has been run before (on first boot), or if
          * it still needs to be run.
          *
-         * nonzero = it has been run in the past
-         * 0 = it has not been run in the past
+         * not "1" = it has not been run in the past
+         * 1 = it has been run in the past
          */
         public static final String SETUP_WIZARD_HAS_RUN = "setup_wizard_has_run";
 
