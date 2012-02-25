@@ -1631,14 +1631,6 @@ public final class Settings {
         public static final String DATE_FORMAT = "date_format";
 
         /**
-         * Whether the system has booted previously or not
-         *
-         * null = system first boot
-         * not null (usually "1") = not system first boot
-         */
-        public static final String SYSTEM_FIRST_BOOT = "system_first_boot";
-
-        /**
          * Whether the setup wizard has been run before (on first boot), or if
          * it still needs to be run.
          *
