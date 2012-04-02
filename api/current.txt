@@ -3200,6 +3200,7 @@ package android.app {
     method public android.app.DownloadManager.Request setVisibleInDownloadsUi(boolean);
     field public static final int NETWORK_MOBILE = 1; // 0x1
     field public static final int NETWORK_WIFI = 2; // 0x2
+    field public static final int NETWORK_WIMAX = 64; // 0x40
     field public static final int VISIBILITY_HIDDEN = 2; // 0x2
     field public static final int VISIBILITY_VISIBLE = 0; // 0x0
     field public static final int VISIBILITY_VISIBLE_NOTIFY_COMPLETED = 1; // 0x1
