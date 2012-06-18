@@ -2,6 +2,7 @@
 <!--
 /**
  * Copyright (c) 2009, The Android Open Source Project
+ * Copyright (c) 2012, Crossbones Software
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); 
  * you may not use this file except in compliance with the License. 
@@ -305,6 +306,9 @@
     <!-- Content description of the button for showing a settings panel in the notification panel for accessibility (not shown on the screen). [CHAR LIMIT=NONE] -->
     <string name="accessibility_settings_button">System settings.</string>
 
+    <!-- Content description of the button for showing a menu settings panel in the notification panel for accessibility (not shown on the screen). [CHAR LIMIT=NONE] -->
+    <string name="accessibility_quick_settings_button">Quick system settings.</string>
+
     <!-- Content description of the button for showing a notifications panel in the notification panel for accessibility (not shown on the screen). [CHAR LIMIT=NONE] -->
     <string name="accessibility_notifications_button">Notifications.</string>
 
@@ -362,4 +366,12 @@
 
     <!-- Content description of the clear button in the notification panel for accessibility (not shown on the screen). [CHAR LIMIT=NONE] -->
     <string name="accessibility_clear_all">Clear all notifications.</string>
+
+    <!-- Quick settings menu -->
+    <string name="quicksettings_title">Quick Settings</string>
+    <string name="switch_wifi_text">Wi-Fi</string>
+    <string name="switch_bluetooth_text">Bluetooth</string>
+    <string name="switch_gps_text">GPS</string>
+    <string name="switch_sync_text">Sync</string>
+
 </resources>

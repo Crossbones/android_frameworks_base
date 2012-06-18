@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010 The Android Open Source Project
+ * Copyright (C) 2012 Crossbones Software
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -62,15 +63,18 @@ import android.view.WindowManager;
 import android.view.WindowManagerImpl;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
+import android.widget.ArrayAdapter;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.RemoteViews;
 import android.widget.ScrollView;
+import android.widget.Spinner;
 import android.widget.TextView;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.List;
 
 import com.android.internal.statusbar.StatusBarIcon;
 import com.android.internal.statusbar.StatusBarNotification;
@@ -164,6 +168,7 @@ public class PhoneStatusBar extends StatusBar {
     // top bar
     TextView mNoNotificationsTitle;
     View mClearButton;
+    View mQuickSettingsButton;
     View mSettingsButton;
 
     // drag bar
@@ -328,6 +333,8 @@ public class PhoneStatusBar extends StatusBar {
         mClearButton.setAlpha(0f);
         mClearButton.setEnabled(false);
         mDateView = (DateView)expanded.findViewById(R.id.date);
+        mQuickSettingsButton = expanded.findViewById(R.id.quick_settings_button);
+        mQuickSettingsButton.setOnClickListener(mQuickSettingsButtonListener);
         mSettingsButton = expanded.findViewById(R.id.settings_button);
         mSettingsButton.setOnClickListener(mSettingsButtonListener);
         mScrollView = (ScrollView)expanded.findViewById(R.id.scroll);
@@ -2196,6 +2203,20 @@ public class PhoneStatusBar extends StatusBar {
             v.getContext().startActivity(new Intent(Settings.ACTION_SETTINGS)
                     .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             animateCollapse();
+        }
+    };
+
+    private View.OnClickListener mQuickSettingsButtonListener = new View.OnClickListener() {
+        public void onClick(View v) {
+            // Open quick menu settings view
+            try {
+                // Dismiss the lock screen when Settings starts.
+                ActivityManagerNative.getDefault().dismissKeyguardOnNextActivity();
+            } catch (RemoteException e) {
+            }
+
+            QuickSettingsPopupWindow quickSettingsWindow = new QuickSettingsPopupWindow(v);
+            quickSettingsWindow.showLikePopDownMenu(-50,0);
         }
     };
 
