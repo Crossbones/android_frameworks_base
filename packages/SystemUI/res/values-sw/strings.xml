@@ -46,7 +46,7 @@
     <string name="status_bar_settings_notifications" msgid="397146176280905137">"Arifa"</string>
     <string name="bluetooth_tethered" msgid="7094101612161133267">"Bluetooth imefungwa"</string>
     <string name="status_bar_input_method_settings_configure_input_methods" msgid="3504292471512317827">"Weka mbinu za ingizo"</string>
-    <string name="status_bar_use_physical_keyboard" msgid="3695516942412442936">"Tumia kibodi halisi"</string>
+    <string name="status_bar_use_physical_keyboard" msgid="7551903084416057810">"Kibodi halisi"</string>
     <string name="usb_device_permission_prompt" msgid="834698001271562057">"Ruhusu programu <xliff:g id="APPLICATION">%1$s</xliff:g> kufikia kifaa cha USB?"</string>
     <string name="usb_accessory_permission_prompt" msgid="5171775411178865750">"Ruhusu programu <xliff:g id="APPLICATION">%1$s</xliff:g> kufikia kifaa cha ziada cha USB?"</string>
     <string name="usb_device_confirm_prompt" msgid="5161205258635253206">"Je, ungetaka kufungua  <xliff:g id="ACTIVITY">%1$s</xliff:g>wakati kifaa cha USB kimeunganishwa?"</string>
@@ -136,4 +136,11 @@
     <string name="gps_notification_searching_text" msgid="8574247005642736060">"Inatafuta GPS"</string>
     <string name="gps_notification_found_text" msgid="4619274244146446464">"Mahali pamewekwa na GPS"</string>
     <string name="accessibility_clear_all" msgid="5235938559247164925">"Futa arifa zote."</string>
+    <string name="dreams_dock_launcher" msgid="3541196417659166245">"Amilisha hifadhi ya skrini"</string>
+    <string name="status_bar_notification_inspect_item_title" msgid="1163547729015390250">"Taarifa ya programu"</string>
+    <string name="notifications_off_title" msgid="8936620513608443224">"Arifa zimelemazwa"</string>
+    <string name="notifications_off_text" msgid="2529001315769385273">"Gonga hapa ili kuwezesha tena arifa."</string>
+    <string name="accessibility_rotation_lock_off" msgid="4062780228931590069">"Skrini itazunguka kiotomatiki."</string>
+    <string name="accessibility_rotation_lock_on_landscape" msgid="6731197337665366273">"Skrini imefungwa sasa katika uelekezo wa mandhari."</string>
+    <string name="accessibility_rotation_lock_on_portrait" msgid="5809367521644012115">"Skrini imefungwa katika uelekeo wa picha."</string>
 </resources>

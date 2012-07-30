@@ -79,9 +79,9 @@ interface IWindowSession {
      */
     int relayout(IWindow window, int seq, in WindowManager.LayoutParams attrs,
             int requestedWidth, int requestedHeight, int viewVisibility,
-            int flags, out Rect outFrame, out Rect outContentInsets,
-            out Rect outVisibleInsets, out Configuration outConfig,
-            out Surface outSurface);
+            int flags, out Rect outFrame,
+            out Rect outContentInsets, out Rect outVisibleInsets,
+            out Configuration outConfig, out Surface outSurface);
 
     /**
      * If a call to relayout() asked to have the surface destroy deferred,

@@ -22,8 +22,10 @@
 
 #include <utils/Log.h>
 
+#include "Caches.h"
 #include "Debug.h"
 #include "FontRenderer.h"
+#include "Caches.h"
 
 namespace android {
 namespace uirenderer {
@@ -34,10 +36,30 @@ namespace uirenderer {
 
 #define DEFAULT_TEXT_CACHE_WIDTH 1024
 #define DEFAULT_TEXT_CACHE_HEIGHT 256
-
-// We should query these values from the GL context
 #define MAX_TEXT_CACHE_WIDTH 2048
-#define MAX_TEXT_CACHE_HEIGHT 2048
+#define TEXTURE_BORDER_SIZE 2
+
+#define AUTO_KERN(prev, next) (((next) - (prev) + 32) >> 6 << 16)
+
+///////////////////////////////////////////////////////////////////////////////
+// CacheTextureLine
+///////////////////////////////////////////////////////////////////////////////
+
+bool CacheTextureLine::fitBitmap(const SkGlyph& glyph, uint32_t *retOriginX, uint32_t *retOriginY) {
+    if (glyph.fHeight + TEXTURE_BORDER_SIZE > mMaxHeight) {
+        return false;
+    }
+
+    if (mCurrentCol + glyph.fWidth + TEXTURE_BORDER_SIZE < mMaxWidth) {
+        *retOriginX = mCurrentCol + 1;
+        *retOriginY = mCurrentRow + 1;
+        mCurrentCol += glyph.fWidth + TEXTURE_BORDER_SIZE;
+        mDirty = true;
+        return true;
+    }
+
+    return false;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 // Font
@@ -65,13 +87,17 @@ Font::~Font() {
     }
 }
 
-void Font::invalidateTextureCache() {
+void Font::invalidateTextureCache(CacheTextureLine *cacheLine) {
     for (uint32_t i = 0; i < mCachedGlyphs.size(); i++) {
-        mCachedGlyphs.valueAt(i)->mIsValid = false;
+        CachedGlyphInfo* cachedGlyph = mCachedGlyphs.valueAt(i);
+        if (cacheLine == NULL || cachedGlyph->mCachedTextureLine == cacheLine) {
+            cachedGlyph->mIsValid = false;
+        }
     }
 }
 
-void Font::measureCachedGlyph(CachedGlyphInfo *glyph, int x, int y, Rect *bounds) {
+void Font::measureCachedGlyph(CachedGlyphInfo *glyph, int x, int y,
+        uint8_t* bitmap, uint32_t bitmapW, uint32_t bitmapH, Rect* bounds, const float* pos) {
     int nPenX = x + glyph->mBitmapLeft;
     int nPenY = y + glyph->mBitmapTop;
 
@@ -92,7 +118,8 @@ void Font::measureCachedGlyph(CachedGlyphInfo *glyph, int x, int y, Rect *bounds
     }
 }
 
-void Font::drawCachedGlyph(CachedGlyphInfo* glyph, int x, int y) {
+void Font::drawCachedGlyph(CachedGlyphInfo* glyph, int x, int y,
+        uint8_t* bitmap, uint32_t bitmapW, uint32_t bitmapH, Rect* bounds, const float* pos) {
     int nPenX = x + glyph->mBitmapLeft;
     int nPenY = y + glyph->mBitmapTop + glyph->mBitmapHeight;
 
@@ -104,39 +131,78 @@ void Font::drawCachedGlyph(CachedGlyphInfo* glyph, int x, int y) {
     int width = (int) glyph->mBitmapWidth;
     int height = (int) glyph->mBitmapHeight;
 
-    mState->appendMeshQuad(nPenX, nPenY, 0, u1, v2,
-            nPenX + width, nPenY, 0, u2, v2,
-            nPenX + width, nPenY - height, 0, u2, v1,
-            nPenX, nPenY - height, 0, u1, v1);
+    mState->appendMeshQuad(nPenX, nPenY, u1, v2,
+            nPenX + width, nPenY, u2, v2,
+            nPenX + width, nPenY - height, u2, v1,
+            nPenX, nPenY - height, u1, v1, glyph->mCachedTextureLine->mCacheTexture);
 }
 
-void Font::drawCachedGlyph(CachedGlyphInfo* glyph, int x, int y,
-        uint8_t* bitmap, uint32_t bitmapW, uint32_t bitmapH) {
+void Font::drawCachedGlyphBitmap(CachedGlyphInfo* glyph, int x, int y,
+        uint8_t* bitmap, uint32_t bitmapW, uint32_t bitmapH, Rect* bounds, const float* pos) {
     int nPenX = x + glyph->mBitmapLeft;
     int nPenY = y + glyph->mBitmapTop;
 
     uint32_t endX = glyph->mStartX + glyph->mBitmapWidth;
     uint32_t endY = glyph->mStartY + glyph->mBitmapHeight;
 
-    uint32_t cacheWidth = mState->getCacheWidth();
-    const uint8_t* cacheBuffer = mState->getTextTextureData();
+    CacheTexture *cacheTexture = glyph->mCachedTextureLine->mCacheTexture;
+    uint32_t cacheWidth = cacheTexture->mWidth;
+    const uint8_t* cacheBuffer = cacheTexture->mTexture;
 
     uint32_t cacheX = 0, cacheY = 0;
     int32_t bX = 0, bY = 0;
     for (cacheX = glyph->mStartX, bX = nPenX; cacheX < endX; cacheX++, bX++) {
         for (cacheY = glyph->mStartY, bY = nPenY; cacheY < endY; cacheY++, bY++) {
+#if DEBUG_FONT_RENDERER
             if (bX < 0 || bY < 0 || bX >= (int32_t) bitmapW || bY >= (int32_t) bitmapH) {
-                LOGE("Skipping invalid index");
+                ALOGE("Skipping invalid index");
                 continue;
             }
+#endif
             uint8_t tempCol = cacheBuffer[cacheY * cacheWidth + cacheX];
             bitmap[bY * bitmapW + bX] = tempCol;
         }
     }
-
 }
 
-Font::CachedGlyphInfo* Font::getCachedGlyph(SkPaint* paint, glyph_t textUnit) {
+void Font::drawCachedGlyph(CachedGlyphInfo* glyph, float x, float hOffset, float vOffset,
+        SkPathMeasure& measure, SkPoint* position, SkVector* tangent) {
+    const float halfWidth = glyph->mBitmapWidth * 0.5f;
+    const float height = glyph->mBitmapHeight;
+
+    vOffset += glyph->mBitmapTop + height;
+
+    SkPoint destination[4];
+    measure.getPosTan(x + hOffset +  glyph->mBitmapLeft + halfWidth, position, tangent);
+
+    // Move along the tangent and offset by the normal
+    destination[0].set(-tangent->fX * halfWidth - tangent->fY * vOffset,
+            -tangent->fY * halfWidth + tangent->fX * vOffset);
+    destination[1].set(tangent->fX * halfWidth - tangent->fY * vOffset,
+            tangent->fY * halfWidth + tangent->fX * vOffset);
+    destination[2].set(destination[1].fX + tangent->fY * height,
+            destination[1].fY - tangent->fX * height);
+    destination[3].set(destination[0].fX + tangent->fY * height,
+            destination[0].fY - tangent->fX * height);
+
+    const float u1 = glyph->mBitmapMinU;
+    const float u2 = glyph->mBitmapMaxU;
+    const float v1 = glyph->mBitmapMinV;
+    const float v2 = glyph->mBitmapMaxV;
+
+    mState->appendRotatedMeshQuad(
+            position->fX + destination[0].fX,
+            position->fY + destination[0].fY, u1, v2,
+            position->fX + destination[1].fX,
+            position->fY + destination[1].fY, u2, v2,
+            position->fX + destination[2].fX,
+            position->fY + destination[2].fY, u2, v1,
+            position->fX + destination[3].fX,
+            position->fY + destination[3].fY, u1, v1,
+            glyph->mCachedTextureLine->mCacheTexture);
+}
+
+CachedGlyphInfo* Font::getCachedGlyph(SkPaint* paint, glyph_t textUnit) {
     CachedGlyphInfo* cachedGlyph = NULL;
     ssize_t index = mCachedGlyphs.indexOfKey(textUnit);
     if (index >= 0) {
@@ -158,76 +224,160 @@ void Font::render(SkPaint* paint, const char* text, uint32_t start, uint32_t len
         int numGlyphs, int x, int y, uint8_t *bitmap, uint32_t bitmapW, uint32_t bitmapH) {
     if (bitmap != NULL && bitmapW > 0 && bitmapH > 0) {
         render(paint, text, start, len, numGlyphs, x, y, BITMAP, bitmap,
-                bitmapW, bitmapH, NULL);
+                bitmapW, bitmapH, NULL, NULL);
     } else {
         render(paint, text, start, len, numGlyphs, x, y, FRAMEBUFFER, NULL,
-                0, 0, NULL);
+                0, 0, NULL, NULL);
+    }
+}
+
+void Font::render(SkPaint* paint, const char *text, uint32_t start, uint32_t len,
+            int numGlyphs, int x, int y, const float* positions) {
+    render(paint, text, start, len, numGlyphs, x, y, FRAMEBUFFER, NULL,
+            0, 0, NULL, positions);
+}
+
+void Font::render(SkPaint* paint, const char *text, uint32_t start, uint32_t len,
+        int numGlyphs, SkPath* path, float hOffset, float vOffset) {
+    if (numGlyphs == 0 || text == NULL || len == 0) {
+        return;
+    }
+
+    text += start;
+
+    int glyphsCount = 0;
+    SkFixed prevRsbDelta = 0;
+
+    float penX = 0.0f;
+
+    SkPoint position;
+    SkVector tangent;
+
+    SkPathMeasure measure(*path, false);
+    float pathLength = SkScalarToFloat(measure.getLength());
+
+    if (paint->getTextAlign() != SkPaint::kLeft_Align) {
+        float textWidth = SkScalarToFloat(paint->measureText(text, len));
+        float pathOffset = pathLength;
+        if (paint->getTextAlign() == SkPaint::kCenter_Align) {
+            textWidth *= 0.5f;
+            pathOffset *= 0.5f;
+        }
+        penX += pathOffset - textWidth;
+    }
+
+    while (glyphsCount < numGlyphs && penX < pathLength) {
+        glyph_t glyph = GET_GLYPH(text);
+
+        if (IS_END_OF_STRING(glyph)) {
+            break;
+        }
+
+        CachedGlyphInfo* cachedGlyph = getCachedGlyph(paint, glyph);
+        penX += SkFixedToFloat(AUTO_KERN(prevRsbDelta, cachedGlyph->mLsbDelta));
+        prevRsbDelta = cachedGlyph->mRsbDelta;
+
+        if (cachedGlyph->mIsValid) {
+            drawCachedGlyph(cachedGlyph, penX, hOffset, vOffset, measure, &position, &tangent);
+        }
+
+        penX += SkFixedToFloat(cachedGlyph->mAdvanceX);
+
+        glyphsCount++;
     }
 }
 
 void Font::measure(SkPaint* paint, const char* text, uint32_t start, uint32_t len,
         int numGlyphs, Rect *bounds) {
     if (bounds == NULL) {
-        LOGE("No return rectangle provided to measure text");
+        ALOGE("No return rectangle provided to measure text");
         return;
     }
     bounds->set(1e6, -1e6, -1e6, 1e6);
-    render(paint, text, start, len, numGlyphs, 0, 0, MEASURE, NULL, 0, 0, bounds);
+    render(paint, text, start, len, numGlyphs, 0, 0, MEASURE, NULL, 0, 0, bounds, NULL);
 }
-
-#define SkAutoKern_AdjustF(prev, next) (((next) - (prev) + 32) >> 6 << 16)
 
 void Font::render(SkPaint* paint, const char* text, uint32_t start, uint32_t len,
         int numGlyphs, int x, int y, RenderMode mode, uint8_t *bitmap,
-        uint32_t bitmapW, uint32_t bitmapH,Rect *bounds) {
+        uint32_t bitmapW, uint32_t bitmapH, Rect* bounds, const float* positions) {
     if (numGlyphs == 0 || text == NULL || len == 0) {
         return;
     }
 
-    float penX = x;
-    int penY = y;
-    int glyphsLeft = 1;
-    if (numGlyphs > 0) {
-        glyphsLeft = numGlyphs;
-    }
-
-    SkFixed prevRsbDelta = 0;
-    penX += 0.5f;
+    static RenderGlyph gRenderGlyph[] = {
+            &android::uirenderer::Font::drawCachedGlyph,
+            &android::uirenderer::Font::drawCachedGlyphBitmap,
+            &android::uirenderer::Font::measureCachedGlyph
+    };
+    RenderGlyph render = gRenderGlyph[mode];
 
     text += start;
+    int glyphsCount = 0;
 
-    while (glyphsLeft > 0) {
-        glyph_t glyph = GET_GLYPH(text);
+    if (CC_LIKELY(positions == NULL)) {
+        SkFixed prevRsbDelta = 0;
 
-        // Reached the end of the string
-        if (IS_END_OF_STRING(glyph)) {
-            break;
-        }
+        float penX = x + 0.5f;
+        int penY = y;
 
-        CachedGlyphInfo* cachedGlyph = getCachedGlyph(paint, glyph);
-        penX += SkFixedToFloat(SkAutoKern_AdjustF(prevRsbDelta, cachedGlyph->mLsbDelta));
-        prevRsbDelta = cachedGlyph->mRsbDelta;
+        while (glyphsCount < numGlyphs) {
+            glyph_t glyph = GET_GLYPH(text);
 
-        // If it's still not valid, we couldn't cache it, so we shouldn't draw garbage
-        if (cachedGlyph->mIsValid) {
-            switch(mode) {
-            case FRAMEBUFFER:
-                drawCachedGlyph(cachedGlyph, (int) floorf(penX), penY);
-                break;
-            case BITMAP:
-                drawCachedGlyph(cachedGlyph, (int) floorf(penX), penY, bitmap, bitmapW, bitmapH);
-                break;
-            case MEASURE:
-                measureCachedGlyph(cachedGlyph, (int) floorf(penX), penY, bounds);
+            // Reached the end of the string
+            if (IS_END_OF_STRING(glyph)) {
                 break;
             }
+
+            CachedGlyphInfo* cachedGlyph = getCachedGlyph(paint, glyph);
+            penX += SkFixedToFloat(AUTO_KERN(prevRsbDelta, cachedGlyph->mLsbDelta));
+            prevRsbDelta = cachedGlyph->mRsbDelta;
+
+            // If it's still not valid, we couldn't cache it, so we shouldn't draw garbage
+            if (cachedGlyph->mIsValid) {
+                (*this.*render)(cachedGlyph, (int) floorf(penX), penY,
+                        bitmap, bitmapW, bitmapH, bounds, positions);
+            }
+
+            penX += SkFixedToFloat(cachedGlyph->mAdvanceX);
+
+            glyphsCount++;
         }
+    } else {
+        const SkPaint::Align align = paint->getTextAlign();
 
-        penX += SkFixedToFloat(cachedGlyph->mAdvanceX);
+        // This is for renderPosText()
+        while (glyphsCount < numGlyphs) {
+            glyph_t glyph = GET_GLYPH(text);
 
-        // If we were given a specific number of glyphs, decrement
-        if (numGlyphs > 0) {
-            glyphsLeft--;
+            // Reached the end of the string
+            if (IS_END_OF_STRING(glyph)) {
+                break;
+            }
+
+            CachedGlyphInfo* cachedGlyph = getCachedGlyph(paint, glyph);
+
+            // If it's still not valid, we couldn't cache it, so we shouldn't draw garbage
+            if (cachedGlyph->mIsValid) {
+                int penX = x + positions[(glyphsCount << 1)];
+                int penY = y + positions[(glyphsCount << 1) + 1];
+
+                switch (align) {
+                    case SkPaint::kRight_Align:
+                        penX -= SkFixedToFloat(cachedGlyph->mAdvanceX);
+                        penY -= SkFixedToFloat(cachedGlyph->mAdvanceY);
+                        break;
+                    case SkPaint::kCenter_Align:
+                        penX -= SkFixedToFloat(cachedGlyph->mAdvanceX >> 1);
+                        penY -= SkFixedToFloat(cachedGlyph->mAdvanceY >> 1);
+                    default:
+                        break;
+                }
+
+                (*this.*render)(cachedGlyph, penX, penY,
+                        bitmap, bitmapW, bitmapH, bounds, positions);
+            }
+
+            glyphsCount++;
         }
     }
 }
@@ -245,7 +395,7 @@ void Font::updateGlyphCache(SkPaint* paint, const SkGlyph& skiaGlyph, CachedGlyp
 
     // Get the bitmap for the glyph
     paint->findImage(skiaGlyph);
-    glyph->mIsValid = mState->cacheBitmap(skiaGlyph, &startX, &startY);
+    mState->cacheBitmap(skiaGlyph, glyph, &startX, &startY);
 
     if (!glyph->mIsValid) {
         return;
@@ -259,8 +409,8 @@ void Font::updateGlyphCache(SkPaint* paint, const SkGlyph& skiaGlyph, CachedGlyp
     glyph->mBitmapWidth = skiaGlyph.fWidth;
     glyph->mBitmapHeight = skiaGlyph.fHeight;
 
-    uint32_t cacheWidth = mState->getCacheWidth();
-    uint32_t cacheHeight = mState->getCacheHeight();
+    uint32_t cacheWidth = glyph->mCachedTextureLine->mCacheTexture->mWidth;
+    uint32_t cacheHeight = glyph->mCachedTextureLine->mCacheTexture->mHeight;
 
     glyph->mBitmapMinU = (float) startX / (float) cacheWidth;
     glyph->mBitmapMinV = (float) startY / (float) cacheHeight;
@@ -270,7 +420,7 @@ void Font::updateGlyphCache(SkPaint* paint, const SkGlyph& skiaGlyph, CachedGlyp
     mState->mUploadTexture = true;
 }
 
-Font::CachedGlyphInfo* Font::cacheGlyph(SkPaint* paint, glyph_t glyph) {
+CachedGlyphInfo* Font::cacheGlyph(SkPaint* paint, glyph_t glyph) {
     CachedGlyphInfo* newGlyph = new CachedGlyphInfo();
     mCachedGlyphs.add(glyph, newGlyph);
 
@@ -319,27 +469,31 @@ FontRenderer::FontRenderer() {
     mInitialized = false;
     mMaxNumberOfQuads = 1024;
     mCurrentQuadIndex = 0;
-    mTextureId = 0;
 
     mTextMeshPtr = NULL;
-    mTextTexture = NULL;
+    mCurrentCacheTexture = NULL;
+    mLastCacheTexture = NULL;
+    mCacheTextureSmall = NULL;
+    mCacheTexture128 = NULL;
+    mCacheTexture256 = NULL;
+    mCacheTexture512 = NULL;
+
+    mLinearFiltering = false;
 
     mIndexBufferID = 0;
-    mPositionAttrSlot = -1;
-    mTexcoordAttrSlot = -1;
 
-    mCacheWidth = DEFAULT_TEXT_CACHE_WIDTH;
-    mCacheHeight = DEFAULT_TEXT_CACHE_HEIGHT;
+    mSmallCacheWidth = DEFAULT_TEXT_CACHE_WIDTH;
+    mSmallCacheHeight = DEFAULT_TEXT_CACHE_HEIGHT;
 
     char property[PROPERTY_VALUE_MAX];
     if (property_get(PROPERTY_TEXT_CACHE_WIDTH, property, NULL) > 0) {
         if (sLogFontRendererCreate) {
             INIT_LOGD("  Setting text cache width to %s pixels", property);
         }
-        mCacheWidth = atoi(property);
+        mSmallCacheWidth = atoi(property);
     } else {
         if (sLogFontRendererCreate) {
-            INIT_LOGD("  Using default text cache width of %i pixels", mCacheWidth);
+            INIT_LOGD("  Using default text cache width of %i pixels", mSmallCacheWidth);
         }
     }
 
@@ -347,10 +501,10 @@ FontRenderer::FontRenderer() {
         if (sLogFontRendererCreate) {
             INIT_LOGD("  Setting text cache width to %s pixels", property);
         }
-        mCacheHeight = atoi(property);
+        mSmallCacheHeight = atoi(property);
     } else {
         if (sLogFontRendererCreate) {
-            INIT_LOGD("  Using default text cache height of %i pixels", mCacheHeight);
+            INIT_LOGD("  Using default text cache height of %i pixels", mSmallCacheHeight);
         }
     }
 
@@ -364,12 +518,15 @@ FontRenderer::~FontRenderer() {
     mCacheLines.clear();
 
     if (mInitialized) {
-        delete[] mTextMeshPtr;
-        delete[] mTextTexture;
-    }
+        // Unbinding the buffer shouldn't be necessary but it crashes with some drivers
+        Caches::getInstance().unbindIndicesBuffer();
+        glDeleteBuffers(1, &mIndexBufferID);
 
-    if (mTextureId) {
-        glDeleteTextures(1, &mTextureId);
+        delete[] mTextMeshPtr;
+        delete mCacheTextureSmall;
+        delete mCacheTexture128;
+        delete mCacheTexture256;
+        delete mCacheTexture512;
     }
 
     Vector<Font*> fontsToDereference = mActiveFonts;
@@ -383,28 +540,87 @@ void FontRenderer::flushAllAndInvalidate() {
         issueDrawCommand();
         mCurrentQuadIndex = 0;
     }
+
     for (uint32_t i = 0; i < mActiveFonts.size(); i++) {
         mActiveFonts[i]->invalidateTextureCache();
     }
+
     for (uint32_t i = 0; i < mCacheLines.size(); i++) {
         mCacheLines[i]->mCurrentCol = 0;
     }
 }
 
-bool FontRenderer::cacheBitmap(const SkGlyph& glyph, uint32_t* retOriginX, uint32_t* retOriginY) {
+void FontRenderer::deallocateTextureMemory(CacheTexture *cacheTexture) {
+    if (cacheTexture && cacheTexture->mTexture) {
+        glDeleteTextures(1, &cacheTexture->mTextureId);
+        delete[] cacheTexture->mTexture;
+        cacheTexture->mTexture = NULL;
+        cacheTexture->mTextureId = 0;
+    }
+}
+
+void FontRenderer::flushLargeCaches() {
+    if ((!mCacheTexture128 || !mCacheTexture128->mTexture) &&
+            (!mCacheTexture256 || !mCacheTexture256->mTexture) &&
+            (!mCacheTexture512 || !mCacheTexture512->mTexture)) {
+        // Typical case; no large glyph caches allocated
+        return;
+    }
+
+    for (uint32_t i = 0; i < mCacheLines.size(); i++) {
+        CacheTextureLine* cacheLine = mCacheLines[i];
+        if ((cacheLine->mCacheTexture == mCacheTexture128 ||
+                cacheLine->mCacheTexture == mCacheTexture256 ||
+                cacheLine->mCacheTexture == mCacheTexture512) &&
+                cacheLine->mCacheTexture->mTexture != NULL) {
+            cacheLine->mCurrentCol = 0;
+            for (uint32_t i = 0; i < mActiveFonts.size(); i++) {
+                mActiveFonts[i]->invalidateTextureCache(cacheLine);
+            }
+        }
+    }
+
+    deallocateTextureMemory(mCacheTexture128);
+    deallocateTextureMemory(mCacheTexture256);
+    deallocateTextureMemory(mCacheTexture512);
+}
+
+void FontRenderer::allocateTextureMemory(CacheTexture* cacheTexture) {
+    int width = cacheTexture->mWidth;
+    int height = cacheTexture->mHeight;
+
+    cacheTexture->mTexture = new uint8_t[width * height];
+#if DEBUG_FONT_RENDERER
+    memset(cacheTexture->mTexture, 0, width * height * sizeof(uint8_t));
+#endif
+
+    if (!cacheTexture->mTextureId) {
+        glGenTextures(1, &cacheTexture->mTextureId);
+    }
+
+    Caches::getInstance().activeTexture(0);
+    glBindTexture(GL_TEXTURE_2D, cacheTexture->mTextureId);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    // Initialize texture dimensions
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, width, height, 0,
+            GL_ALPHA, GL_UNSIGNED_BYTE, 0);
+
+    const GLenum filtering = cacheTexture->mLinearFiltering ? GL_LINEAR : GL_NEAREST;
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filtering);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filtering);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+}
+
+void FontRenderer::cacheBitmap(const SkGlyph& glyph, CachedGlyphInfo* cachedGlyph,
+        uint32_t* retOriginX, uint32_t* retOriginY) {
+    cachedGlyph->mIsValid = false;
     // If the glyph is too tall, don't cache it
-    if (glyph.fHeight + 2 > mCacheLines[mCacheLines.size() - 1]->mMaxHeight) {
-        if (mCacheHeight < MAX_TEXT_CACHE_HEIGHT) {
-            // Default cache not large enough for large glyphs - resize cache to
-            // max size and try again
-            flushAllAndInvalidate();
-            initTextTexture(true);
-        }
-        if (glyph.fHeight + 2 > mCacheLines[mCacheLines.size() - 1]->mMaxHeight) {
-            LOGE("Font size to large to fit in cache. width, height = %i, %i",
-                    (int) glyph.fWidth, (int) glyph.fHeight);
-            return false;
-        }
+    if (glyph.fHeight + TEXTURE_BORDER_SIZE > mCacheLines[mCacheLines.size() - 1]->mMaxHeight) {
+        ALOGE("Font size to large to fit in cache. width, height = %i, %i",
+                (int) glyph.fWidth, (int) glyph.fHeight);
+        return;
     }
 
     // Now copy the bitmap into the cache texture
@@ -412,9 +628,11 @@ bool FontRenderer::cacheBitmap(const SkGlyph& glyph, uint32_t* retOriginX, uint3
     uint32_t startY = 0;
 
     bool bitmapFit = false;
+    CacheTextureLine *cacheLine;
     for (uint32_t i = 0; i < mCacheLines.size(); i++) {
         bitmapFit = mCacheLines[i]->fitBitmap(glyph, &startX, &startY);
         if (bitmapFit) {
+            cacheLine = mCacheLines[i];
             break;
         }
     }
@@ -427,17 +645,18 @@ bool FontRenderer::cacheBitmap(const SkGlyph& glyph, uint32_t* retOriginX, uint3
         for (uint32_t i = 0; i < mCacheLines.size(); i++) {
             bitmapFit = mCacheLines[i]->fitBitmap(glyph, &startX, &startY);
             if (bitmapFit) {
+                cacheLine = mCacheLines[i];
                 break;
             }
         }
 
         // if we still don't fit, something is wrong and we shouldn't draw
         if (!bitmapFit) {
-            LOGE("Bitmap doesn't fit in cache. width, height = %i, %i",
-                    (int) glyph.fWidth, (int) glyph.fHeight);
-            return false;
+            return;
         }
     }
+
+    cachedGlyph->mCachedTextureLine = cacheLine;
 
     *retOriginX = startX;
     *retOriginY = startY;
@@ -445,9 +664,15 @@ bool FontRenderer::cacheBitmap(const SkGlyph& glyph, uint32_t* retOriginX, uint3
     uint32_t endX = startX + glyph.fWidth;
     uint32_t endY = startY + glyph.fHeight;
 
-    uint32_t cacheWidth = mCacheWidth;
+    uint32_t cacheWidth = cacheLine->mMaxWidth;
 
-    uint8_t* cacheBuffer = mTextTexture;
+    CacheTexture* cacheTexture = cacheLine->mCacheTexture;
+    if (!cacheTexture->mTexture) {
+        // Large-glyph texture memory is allocated only as needed
+        allocateTextureMemory(cacheTexture);
+    }
+
+    uint8_t* cacheBuffer = cacheTexture->mTexture;
     uint8_t* bitmapBuffer = (uint8_t*) glyph.fImage;
     unsigned int stride = glyph.rowBytes();
 
@@ -459,68 +684,78 @@ bool FontRenderer::cacheBitmap(const SkGlyph& glyph, uint32_t* retOriginX, uint3
         }
     }
 
-    return true;
+    cachedGlyph->mIsValid = true;
 }
 
-void FontRenderer::initTextTexture(bool largeFonts) {
-    mCacheLines.clear();
-    if (largeFonts) {
-        mCacheWidth = MAX_TEXT_CACHE_WIDTH;
-        mCacheHeight = MAX_TEXT_CACHE_HEIGHT;
+CacheTexture* FontRenderer::createCacheTexture(int width, int height, bool allocate) {
+    uint8_t* textureMemory = NULL;
+    CacheTexture* cacheTexture = new CacheTexture(textureMemory, width, height);
+
+    if (allocate) {
+        allocateTextureMemory(cacheTexture);
     }
 
-    mTextTexture = new uint8_t[mCacheWidth * mCacheHeight];
-    memset(mTextTexture, 0, mCacheWidth * mCacheHeight * sizeof(uint8_t));
+    return cacheTexture;
+}
+
+void FontRenderer::initTextTexture() {
+    for (uint32_t i = 0; i < mCacheLines.size(); i++) {
+        delete mCacheLines[i];
+    }
+    mCacheLines.clear();
+
+    if (mCacheTextureSmall) {
+        delete mCacheTextureSmall;
+        delete mCacheTexture128;
+        delete mCacheTexture256;
+        delete mCacheTexture512;
+    }
+
+    // Next, use other, separate caches for large glyphs.
+    uint16_t maxWidth = 0;
+    if (Caches::hasInstance()) {
+        maxWidth = Caches::getInstance().maxTextureSize;
+    }
+
+    if (maxWidth > MAX_TEXT_CACHE_WIDTH || maxWidth == 0) {
+        maxWidth = MAX_TEXT_CACHE_WIDTH;
+    }
+
+    mCacheTextureSmall = createCacheTexture(mSmallCacheWidth, mSmallCacheHeight, true);
+    mCacheTexture128 = createCacheTexture(maxWidth, 256, false);
+    mCacheTexture256 = createCacheTexture(maxWidth, 256, false);
+    mCacheTexture512 = createCacheTexture(maxWidth, 512, false);
+    mCurrentCacheTexture = mCacheTextureSmall;
 
     mUploadTexture = false;
-
-    if (mTextureId != 0) {
-        glDeleteTextures(1, &mTextureId);
-    }
-    glGenTextures(1, &mTextureId);
-    glBindTexture(GL_TEXTURE_2D, mTextureId);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    // Initialize texture dimensions
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, mCacheWidth, mCacheHeight, 0,
-            GL_ALPHA, GL_UNSIGNED_BYTE, 0);
-
-    mLinearFiltering = false;
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-    // Split up our cache texture into lines of certain widths
+    // Split up our default cache texture into lines of certain widths
     int nextLine = 0;
-    mCacheLines.push(new CacheTextureLine(mCacheWidth, 18, nextLine, 0));
+    mCacheLines.push(new CacheTextureLine(mSmallCacheWidth, 18, nextLine, 0, mCacheTextureSmall));
     nextLine += mCacheLines.top()->mMaxHeight;
-    mCacheLines.push(new CacheTextureLine(mCacheWidth, 26, nextLine, 0));
+    mCacheLines.push(new CacheTextureLine(mSmallCacheWidth, 26, nextLine, 0, mCacheTextureSmall));
     nextLine += mCacheLines.top()->mMaxHeight;
-    mCacheLines.push(new CacheTextureLine(mCacheWidth, 26, nextLine, 0));
+    mCacheLines.push(new CacheTextureLine(mSmallCacheWidth, 26, nextLine, 0, mCacheTextureSmall));
     nextLine += mCacheLines.top()->mMaxHeight;
-    mCacheLines.push(new CacheTextureLine(mCacheWidth, 34, nextLine, 0));
+    mCacheLines.push(new CacheTextureLine(mSmallCacheWidth, 34, nextLine, 0, mCacheTextureSmall));
     nextLine += mCacheLines.top()->mMaxHeight;
-    mCacheLines.push(new CacheTextureLine(mCacheWidth, 34, nextLine, 0));
+    mCacheLines.push(new CacheTextureLine(mSmallCacheWidth, 34, nextLine, 0, mCacheTextureSmall));
     nextLine += mCacheLines.top()->mMaxHeight;
-    mCacheLines.push(new CacheTextureLine(mCacheWidth, 42, nextLine, 0));
+    mCacheLines.push(new CacheTextureLine(mSmallCacheWidth, 42, nextLine, 0, mCacheTextureSmall));
     nextLine += mCacheLines.top()->mMaxHeight;
-    if (largeFonts) {
-        int nextSize = 76;
-        // Make several new lines with increasing font sizes
-        while (nextSize < (int)(mCacheHeight - nextLine - (2 * nextSize))) {
-            mCacheLines.push(new CacheTextureLine(mCacheWidth, nextSize, nextLine, 0));
-            nextLine += mCacheLines.top()->mMaxHeight;
-            nextSize += 50;
-        }
-    }
-    mCacheLines.push(new CacheTextureLine(mCacheWidth, mCacheHeight - nextLine, nextLine, 0));
+    mCacheLines.push(new CacheTextureLine(mSmallCacheWidth, mSmallCacheHeight - nextLine,
+            nextLine, 0, mCacheTextureSmall));
+
+    //  The first cache is split into 2 lines of height 128, the rest have just one cache line.
+    mCacheLines.push(new CacheTextureLine(maxWidth, 128, 0, 0, mCacheTexture128));
+    mCacheLines.push(new CacheTextureLine(maxWidth, 128, 128, 0, mCacheTexture128));
+    mCacheLines.push(new CacheTextureLine(maxWidth, 256, 0, 0, mCacheTexture256));
+    mCacheLines.push(new CacheTextureLine(maxWidth, 512, 0, 0, mCacheTexture512));
 }
 
 // Avoid having to reallocate memory and render quad by quad
 void FontRenderer::initVertexArrayBuffers() {
-    uint32_t numIndicies = mMaxNumberOfQuads * 6;
-    uint32_t indexBufferSizeBytes = numIndicies * sizeof(uint16_t);
+    uint32_t numIndices = mMaxNumberOfQuads * 6;
+    uint32_t indexBufferSizeBytes = numIndices * sizeof(uint16_t);
     uint16_t* indexBufferData = (uint16_t*) malloc(indexBufferSizeBytes);
 
     // Four verts, two triangles , six indices per quad
@@ -538,13 +773,12 @@ void FontRenderer::initVertexArrayBuffers() {
     }
 
     glGenBuffers(1, &mIndexBufferID);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mIndexBufferID);
+    Caches::getInstance().bindIndicesBuffer(mIndexBufferID);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexBufferSizeBytes, indexBufferData, GL_STATIC_DRAW);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
     free(indexBufferData);
 
-    uint32_t coordSize = 3;
+    uint32_t coordSize = 2;
     uint32_t uvSize = 2;
     uint32_t vertsPerQuad = 4;
     uint32_t vertexBufferSize = mMaxNumberOfQuads * vertsPerQuad * coordSize * uvSize;
@@ -560,32 +794,32 @@ void FontRenderer::checkInit() {
     initTextTexture();
     initVertexArrayBuffers();
 
-    // We store a string with letters in a rough frequency of occurrence
-    mLatinPrecache = String16("eisarntolcdugpmhbyfvkwzxjq ");
-    mLatinPrecache += String16("EISARNTOLCDUGPMHBYFVKWZXJQ");
-    mLatinPrecache += String16(",.?!()-+@;:`'");
-    mLatinPrecache += String16("0123456789");
-
     mInitialized = true;
 }
 
 void FontRenderer::checkTextureUpdate() {
-    if (!mUploadTexture) {
+    if (!mUploadTexture && mLastCacheTexture == mCurrentCacheTexture) {
         return;
     }
 
-    glBindTexture(GL_TEXTURE_2D, mTextureId);
-
+    Caches& caches = Caches::getInstance();
+    GLuint lastTextureId = 0;
     // Iterate over all the cache lines and see which ones need to be updated
     for (uint32_t i = 0; i < mCacheLines.size(); i++) {
         CacheTextureLine* cl = mCacheLines[i];
-        if(cl->mDirty) {
+        if (cl->mDirty && cl->mCacheTexture->mTexture != NULL) {
+            CacheTexture* cacheTexture = cl->mCacheTexture;
             uint32_t xOffset = 0;
             uint32_t yOffset = cl->mCurrentRow;
-            uint32_t width   = mCacheWidth;
+            uint32_t width   = cl->mMaxWidth;
             uint32_t height  = cl->mMaxHeight;
-            void* textureData = mTextTexture + yOffset*width;
+            void* textureData = cacheTexture->mTexture + (yOffset * width);
 
+            if (cacheTexture->mTextureId != lastTextureId) {
+                caches.activeTexture(0);
+                glBindTexture(GL_TEXTURE_2D, cacheTexture->mTextureId);
+                lastTextureId = cacheTexture->mTextureId;
+            }
             glTexSubImage2D(GL_TEXTURE_2D, 0, xOffset, yOffset, width, height,
                     GL_ALPHA, GL_UNSIGNED_BYTE, textureData);
 
@@ -593,67 +827,114 @@ void FontRenderer::checkTextureUpdate() {
         }
     }
 
+    caches.activeTexture(0);
+    glBindTexture(GL_TEXTURE_2D, mCurrentCacheTexture->mTextureId);
+    if (mLinearFiltering != mCurrentCacheTexture->mLinearFiltering) {
+        const GLenum filtering = mLinearFiltering ? GL_LINEAR : GL_NEAREST;
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filtering);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filtering);
+        mCurrentCacheTexture->mLinearFiltering = mLinearFiltering;
+    }
+    mLastCacheTexture = mCurrentCacheTexture;
+
     mUploadTexture = false;
 }
 
 void FontRenderer::issueDrawCommand() {
     checkTextureUpdate();
 
-    float* vtx = mTextMeshPtr;
-    float* tex = vtx + 3;
+    Caches& caches = Caches::getInstance();
+    caches.bindIndicesBuffer(mIndexBufferID);
+    if (!mDrawn) {
+        float* buffer = mTextMeshPtr;
+        int offset = 2;
 
-    glVertexAttribPointer(mPositionAttrSlot, 3, GL_FLOAT, false, 20, vtx);
-    glVertexAttribPointer(mTexcoordAttrSlot, 2, GL_FLOAT, false, 20, tex);
+        bool force = caches.unbindMeshBuffer();
+        caches.bindPositionVertexPointer(force, caches.currentProgram->position, buffer);
+        caches.bindTexCoordsVertexPointer(force, caches.currentProgram->texCoords,
+                buffer + offset);
+    }
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mIndexBufferID);
     glDrawElements(GL_TRIANGLES, mCurrentQuadIndex * 6, GL_UNSIGNED_SHORT, NULL);
 
     mDrawn = true;
 }
 
-void FontRenderer::appendMeshQuad(float x1, float y1, float z1, float u1, float v1, float x2,
-        float y2, float z2, float u2, float v2, float x3, float y3, float z3, float u3, float v3,
-        float x4, float y4, float z4, float u4, float v4) {
-    if (mClip &&
-            (x1 > mClip->right || y1 < mClip->top || x2 < mClip->left || y4 > mClip->bottom)) {
-        return;
+void FontRenderer::appendMeshQuadNoClip(float x1, float y1, float u1, float v1,
+        float x2, float y2, float u2, float v2, float x3, float y3, float u3, float v3,
+        float x4, float y4, float u4, float v4, CacheTexture* texture) {
+    if (texture != mCurrentCacheTexture) {
+        if (mCurrentQuadIndex != 0) {
+            // First, draw everything stored already which uses the previous texture
+            issueDrawCommand();
+            mCurrentQuadIndex = 0;
+        }
+        // Now use the new texture id
+        mCurrentCacheTexture = texture;
     }
 
     const uint32_t vertsPerQuad = 4;
-    const uint32_t floatsPerVert = 5;
+    const uint32_t floatsPerVert = 4;
     float* currentPos = mTextMeshPtr + mCurrentQuadIndex * vertsPerQuad * floatsPerVert;
 
     (*currentPos++) = x1;
     (*currentPos++) = y1;
-    (*currentPos++) = z1;
     (*currentPos++) = u1;
     (*currentPos++) = v1;
 
     (*currentPos++) = x2;
     (*currentPos++) = y2;
-    (*currentPos++) = z2;
     (*currentPos++) = u2;
     (*currentPos++) = v2;
 
     (*currentPos++) = x3;
     (*currentPos++) = y3;
-    (*currentPos++) = z3;
     (*currentPos++) = u3;
     (*currentPos++) = v3;
 
     (*currentPos++) = x4;
     (*currentPos++) = y4;
-    (*currentPos++) = z4;
     (*currentPos++) = u4;
     (*currentPos++) = v4;
 
     mCurrentQuadIndex++;
+}
+
+void FontRenderer::appendMeshQuad(float x1, float y1, float u1, float v1,
+        float x2, float y2, float u2, float v2, float x3, float y3, float u3, float v3,
+        float x4, float y4, float u4, float v4, CacheTexture* texture) {
+
+    if (mClip &&
+            (x1 > mClip->right || y1 < mClip->top || x2 < mClip->left || y4 > mClip->bottom)) {
+        return;
+    }
+
+    appendMeshQuadNoClip(x1, y1, u1, v1, x2, y2, u2, v2, x3, y3, u3, v3, x4, y4, u4, v4, texture);
 
     if (mBounds) {
         mBounds->left = fmin(mBounds->left, x1);
         mBounds->top = fmin(mBounds->top, y3);
         mBounds->right = fmax(mBounds->right, x3);
         mBounds->bottom = fmax(mBounds->bottom, y1);
+    }
+
+    if (mCurrentQuadIndex == mMaxNumberOfQuads) {
+        issueDrawCommand();
+        mCurrentQuadIndex = 0;
+    }
+}
+
+void FontRenderer::appendRotatedMeshQuad(float x1, float y1, float u1, float v1,
+        float x2, float y2, float u2, float v2, float x3, float y3, float u3, float v3,
+        float x4, float y4, float u4, float v4, CacheTexture* texture) {
+
+    appendMeshQuadNoClip(x1, y1, u1, v1, x2, y2, u2, v2, x3, y3, u3, v3, x4, y4, u4, v4, texture);
+
+    if (mBounds) {
+        mBounds->left = fmin(mBounds->left, fmin(x1, fmin(x2, fmin(x3, x4))));
+        mBounds->top = fmin(mBounds->top, fmin(y1, fmin(y2, fmin(y3, y4))));
+        mBounds->right = fmax(mBounds->right, fmax(x1, fmax(x2, fmax(x3, x4))));
+        mBounds->bottom = fmax(mBounds->bottom, fmax(y1, fmax(y2, fmax(y3, y4))));
     }
 
     if (mCurrentQuadIndex == mMaxNumberOfQuads) {
@@ -676,11 +957,19 @@ uint32_t FontRenderer::getRemainingCacheCapacity() {
 void FontRenderer::precacheLatin(SkPaint* paint) {
     // Remaining capacity is measured in %
     uint32_t remainingCapacity = getRemainingCacheCapacity();
-    uint32_t precacheIdx = 0;
-    while (remainingCapacity > 25 && precacheIdx < mLatinPrecache.size()) {
-        mCurrentFont->getCachedGlyph(paint, (int32_t) mLatinPrecache[precacheIdx]);
+    uint32_t precacheIndex = 0;
+
+    // We store a string with letters in a rough frequency of occurrence
+    String16 l("eisarntolcdugpmhbyfvkwzxjq EISARNTOLCDUGPMHBYFVKWZXJQ,.?!()-+@;:'0123456789");
+
+    size_t size = l.size();
+    uint16_t latin[size];
+    paint->utfToGlyphs(l.string(), SkPaint::kUTF16_TextEncoding, size * sizeof(char16_t), latin);
+
+    while (remainingCapacity > 25 && precacheIndex < size) {
+        mCurrentFont->getCachedGlyph(paint, TO_GLYPH(latin[precacheIndex]));
         remainingCapacity = getRemainingCacheCapacity();
-        precacheIdx ++;
+        precacheIndex++;
     }
 }
 
@@ -723,6 +1012,7 @@ FontRenderer::DropShadow FontRenderer::renderDropShadow(SkPaint* paint, const ch
         return image;
     }
 
+    mDrawn = false;
     mClip = NULL;
     mBounds = NULL;
 
@@ -750,29 +1040,19 @@ FontRenderer::DropShadow FontRenderer::renderDropShadow(SkPaint* paint, const ch
     image.image = dataBuffer;
     image.penX = penX;
     image.penY = penY;
+
     return image;
 }
 
-bool FontRenderer::renderText(SkPaint* paint, const Rect* clip, const char *text,
-        uint32_t startIndex, uint32_t len, int numGlyphs, int x, int y, Rect* bounds) {
+void FontRenderer::initRender(const Rect* clip, Rect* bounds) {
     checkInit();
-
-    if (!mCurrentFont) {
-        LOGE("No font set");
-        return false;
-    }
-
-    if (mPositionAttrSlot < 0 || mTexcoordAttrSlot < 0) {
-        LOGE("Font renderer unable to draw, attribute slots undefined");
-        return false;
-    }
 
     mDrawn = false;
     mBounds = bounds;
     mClip = clip;
+}
 
-    mCurrentFont->render(paint, text, startIndex, len, numGlyphs, x, y);
-
+void FontRenderer::finishRender() {
     mBounds = NULL;
     mClip = NULL;
 
@@ -780,6 +1060,48 @@ bool FontRenderer::renderText(SkPaint* paint, const Rect* clip, const char *text
         issueDrawCommand();
         mCurrentQuadIndex = 0;
     }
+}
+
+bool FontRenderer::renderText(SkPaint* paint, const Rect* clip, const char *text,
+        uint32_t startIndex, uint32_t len, int numGlyphs, int x, int y, Rect* bounds) {
+    if (!mCurrentFont) {
+        ALOGE("No font set");
+        return false;
+    }
+
+    initRender(clip, bounds);
+    mCurrentFont->render(paint, text, startIndex, len, numGlyphs, x, y);
+    finishRender();
+
+    return mDrawn;
+}
+
+bool FontRenderer::renderPosText(SkPaint* paint, const Rect* clip, const char *text,
+        uint32_t startIndex, uint32_t len, int numGlyphs, int x, int y,
+        const float* positions, Rect* bounds) {
+    if (!mCurrentFont) {
+        ALOGE("No font set");
+        return false;
+    }
+
+    initRender(clip, bounds);
+    mCurrentFont->render(paint, text, startIndex, len, numGlyphs, x, y, positions);
+    finishRender();
+
+    return mDrawn;
+}
+
+bool FontRenderer::renderTextOnPath(SkPaint* paint, const Rect* clip, const char *text,
+        uint32_t startIndex, uint32_t len, int numGlyphs, SkPath* path,
+        float hOffset, float vOffset, Rect* bounds) {
+    if (!mCurrentFont) {
+        ALOGE("No font set");
+        return false;
+    }
+
+    initRender(clip, bounds);
+    mCurrentFont->render(paint, text, startIndex, len, numGlyphs, path, hOffset, vOffset);
+    finishRender();
 
     return mDrawn;
 }
@@ -914,9 +1236,12 @@ void FontRenderer::verticalBlur(float* weights, int32_t radius,
 void FontRenderer::blurImage(uint8_t *image, int32_t width, int32_t height, int32_t radius) {
     float *gaussian = new float[2 * radius + 1];
     computeGaussianWeights(gaussian, radius);
+
     uint8_t* scratch = new uint8_t[width * height];
+
     horizontalBlur(gaussian, radius, image, scratch, width, height);
     verticalBlur(gaussian, radius, scratch, image, width, height);
+
     delete[] gaussian;
     delete[] scratch;
 }

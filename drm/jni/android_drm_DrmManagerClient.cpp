@@ -57,29 +57,16 @@ public:
 };
 
 String8 Utility::getStringValue(JNIEnv* env, jobject object, const char* fieldName) {
-    String8 dataString("");
-
     /* Look for the instance field with the name fieldName */
     jfieldID fieldID
         = env->GetFieldID(env->GetObjectClass(object), fieldName , "Ljava/lang/String;");
 
     if (NULL != fieldID) {
         jstring valueString = (jstring) env->GetObjectField(object, fieldID);
-
-        if (NULL != valueString && valueString != env->NewStringUTF("")) {
-            char* bytes = const_cast< char* > (env->GetStringUTFChars(valueString, NULL));
-
-            const int length = strlen(bytes) + 1;
-            char *data = new char[length];
-            strncpy(data, bytes, length);
-            dataString = String8(data);
-
-            env->ReleaseStringUTFChars(valueString, bytes);
-            delete [] data; data = NULL;
-        } else {
-            LOGV("Failed to retrieve the data from the field %s", fieldName);
-        }
+        return Utility::getStringValue(env, valueString);
     }
+
+    String8 dataString("");
     return dataString;
 }
 
@@ -102,24 +89,16 @@ String8 Utility::getStringValue(JNIEnv* env, jstring string) {
 
 char* Utility::getByteArrayValue(
             JNIEnv* env, jobject object, const char* fieldName, int* dataLength) {
-    char* data = NULL;
+
     *dataLength = 0;
 
     jfieldID fieldID = env->GetFieldID(env->GetObjectClass(object), fieldName , "[B");
 
     if (NULL != fieldID) {
         jbyteArray byteArray = (jbyteArray) env->GetObjectField(object, fieldID);
-        if (NULL != byteArray) {
-            jint length = env->GetArrayLength(byteArray);
-
-            *dataLength = length;
-            if (0 < *dataLength) {
-                data = new char[length];
-                env->GetByteArrayRegion(byteArray, (jint)0, length, (jbyte *) data);
-            }
-        }
+        return Utility::getByteArrayValue(env, byteArray, dataLength);
     }
-    return data;
+    return NULL;
 }
 
 char* Utility::getByteArrayValue(JNIEnv* env, jbyteArray byteArray, int* dataLength) {
@@ -169,7 +148,7 @@ JNIOnInfoListener::JNIOnInfoListener(JNIEnv* env, jobject thiz, jobject weak_thi
     jclass clazz = env->GetObjectClass(thiz);
 
     if (clazz == NULL) {
-        LOGE("Can't find android/drm/DrmManagerClient");
+        ALOGE("Can't find android/drm/DrmManagerClient");
         jniThrowException(env, "java/lang/Exception", NULL);
         return;
     }
@@ -188,7 +167,7 @@ void JNIOnInfoListener::onInfo(const DrmInfoEvent& event) {
     jint type = event.getType();
     JNIEnv *env = AndroidRuntime::getJNIEnv();
     jstring message = env->NewStringUTF(event.getMessage().string());
-    LOGV("JNIOnInfoListener::onInfo => %d | %d | %s", uniqueId, type, event.getMessage().string());
+    ALOGV("JNIOnInfoListener::onInfo => %d | %d | %s", uniqueId, type, event.getMessage().string());
 
     env->CallStaticVoidMethod(
             mClass,
@@ -225,25 +204,32 @@ static sp<DrmManagerClientImpl> getDrmManagerClientImpl(JNIEnv* env, jobject thi
 }
 
 static jint android_drm_DrmManagerClient_initialize(
-        JNIEnv* env, jobject thiz, jobject weak_thiz) {
-    LOGV("initialize - Enter");
+        JNIEnv* env, jobject thiz) {
+    ALOGV("initialize - Enter");
 
     int uniqueId = 0;
     sp<DrmManagerClientImpl> drmManager = DrmManagerClientImpl::create(&uniqueId, false);
     drmManager->addClient(uniqueId);
 
-    // Set the listener to DrmManager
-    sp<DrmManagerClient::OnInfoListener> listener = new JNIOnInfoListener(env, thiz, weak_thiz);
-    drmManager->setOnInfoListener(uniqueId, listener);
-
     setDrmManagerClientImpl(env, thiz, drmManager);
-    LOGV("initialize - Exit");
-
+    ALOGV("initialize - Exit");
     return uniqueId;
 }
 
-static void android_drm_DrmManagerClient_finalize(JNIEnv* env, jobject thiz, jint uniqueId) {
-    LOGV("finalize - Enter");
+static void android_drm_DrmManagerClient_setListeners(
+        JNIEnv* env, jobject thiz, jint uniqueId, jobject weak_thiz) {
+    ALOGV("setListeners - Enter");
+
+    // Set the listener to DrmManager
+    sp<DrmManagerClient::OnInfoListener> listener = new JNIOnInfoListener(env, thiz, weak_thiz);
+    getDrmManagerClientImpl(env, thiz)->setOnInfoListener(uniqueId, listener);
+
+    ALOGV("setListeners - Exit");
+}
+
+static void android_drm_DrmManagerClient_release(
+        JNIEnv* env, jobject thiz, jint uniqueId) {
+    ALOGV("release - Enter");
     DrmManagerClientImpl::remove(uniqueId);
     getDrmManagerClientImpl(env, thiz)->setOnInfoListener(uniqueId, NULL);
 
@@ -252,12 +238,12 @@ static void android_drm_DrmManagerClient_finalize(JNIEnv* env, jobject thiz, jin
         oldClient->setOnInfoListener(uniqueId, NULL);
         oldClient->removeClient(uniqueId);
     }
-    LOGV("finalize - Exit");
+    ALOGV("release - Exit");
 }
 
 static jobject android_drm_DrmManagerClient_getConstraintsFromContent(
             JNIEnv* env, jobject thiz, jint uniqueId, jstring jpath, jint usage) {
-    LOGV("GetConstraints - Enter");
+    ALOGV("GetConstraints - Enter");
 
     const String8 pathString = Utility::getStringValue(env, jpath);
     DrmConstraints* pConstraints
@@ -298,13 +284,13 @@ static jobject android_drm_DrmManagerClient_getConstraintsFromContent(
     }
 
     delete pConstraints; pConstraints = NULL;
-    LOGV("GetConstraints - Exit");
+    ALOGV("GetConstraints - Exit");
     return constraints;
 }
 
 static jobject android_drm_DrmManagerClient_getMetadataFromContent(
             JNIEnv* env, jobject thiz, jint uniqueId, jstring jpath) {
-    LOGV("GetMetadata - Enter");
+    ALOGV("GetMetadata - Enter");
     const String8 pathString = Utility::getStringValue(env, jpath);
     DrmMetadata* pMetadata =
             getDrmManagerClientImpl(env, thiz)->getMetadata(uniqueId, &pathString);
@@ -335,13 +321,13 @@ static jobject android_drm_DrmManagerClient_getMetadataFromContent(
         }
     }
     delete pMetadata; pMetadata = NULL;
-    LOGV("GetMetadata - Exit");
+    ALOGV("GetMetadata - Exit");
     return metadata;
 }
 
 static jobjectArray android_drm_DrmManagerClient_getAllSupportInfo(
             JNIEnv* env, jobject thiz, jint uniqueId) {
-    LOGV("GetAllSupportInfo - Enter");
+    ALOGV("GetAllSupportInfo - Enter");
     DrmSupportInfo* drmSupportInfoArray = NULL;
 
     int length = 0;
@@ -382,22 +368,22 @@ static jobjectArray android_drm_DrmManagerClient_getAllSupportInfo(
     }
 
     delete [] drmSupportInfoArray; drmSupportInfoArray = NULL;
-    LOGV("GetAllSupportInfo - Exit");
+    ALOGV("GetAllSupportInfo - Exit");
     return array;
 }
 
 static void android_drm_DrmManagerClient_installDrmEngine(
             JNIEnv* env, jobject thiz, jint uniqueId, jstring engineFilePath) {
-    LOGV("installDrmEngine - Enter");
+    ALOGV("installDrmEngine - Enter");
     //getDrmManagerClient(env, thiz)
     //  ->installDrmEngine(uniqueId, Utility::getStringValue(env, engineFilePath));
-    LOGV("installDrmEngine - Exit");
+    ALOGV("installDrmEngine - Exit");
 }
 
 static jint android_drm_DrmManagerClient_saveRights(
             JNIEnv* env, jobject thiz, jint uniqueId,
             jobject drmRights, jstring rightsPath, jstring contentPath) {
-    LOGV("saveRights - Enter");
+    ALOGV("saveRights - Enter");
     int result = DRM_ERROR_UNKNOWN;
     int dataLength = 0;
     char* mData =  Utility::getByteArrayValue(env, drmRights, "mData", &dataLength);
@@ -412,25 +398,25 @@ static jint android_drm_DrmManagerClient_saveRights(
                                 Utility::getStringValue(env, contentPath));
     }
 
-    delete mData; mData = NULL;
-    LOGV("saveRights - Exit");
+    delete[] mData; mData = NULL;
+    ALOGV("saveRights - Exit");
     return result;
 }
 
 static jboolean android_drm_DrmManagerClient_canHandle(
             JNIEnv* env, jobject thiz, jint uniqueId, jstring path, jstring mimeType) {
-    LOGV("canHandle - Enter");
+    ALOGV("canHandle - Enter");
     jboolean result
         = getDrmManagerClientImpl(env, thiz)
             ->canHandle(uniqueId, Utility::getStringValue(env, path),
                     Utility::getStringValue(env, mimeType));
-    LOGV("canHandle - Exit");
+    ALOGV("canHandle - Exit");
     return result;
 }
 
 static jobject android_drm_DrmManagerClient_processDrmInfo(
             JNIEnv* env, jobject thiz, jint uniqueId, jobject drmInfoObject) {
-    LOGV("processDrmInfo - Enter");
+    ALOGV("processDrmInfo - Enter");
     int dataLength = 0;
     const String8 mMimeType =  Utility::getStringValue(env, drmInfoObject, "mMimeType");
     char* mData =  Utility::getByteArrayValue(env, drmInfoObject, "mData", &dataLength);
@@ -463,7 +449,7 @@ static jobject android_drm_DrmManagerClient_processDrmInfo(
 
         String8 keyString = Utility::getStringValue(env, key);
         String8 valueString = Utility::getStringValue(env, valString);
-        LOGV("Key: %s | Value: %s", keyString.string(), valueString.string());
+        ALOGV("Key: %s | Value: %s", keyString.string(), valueString.string());
 
         drmInfo.put(keyString, valueString);
     }
@@ -503,16 +489,16 @@ static jobject android_drm_DrmManagerClient_processDrmInfo(
                 processedData, env->NewStringUTF(pDrmInfoStatus->mimeType.string()));
     }
 
-    delete mData; mData = NULL;
+    delete[] mData; mData = NULL;
     delete pDrmInfoStatus; pDrmInfoStatus = NULL;
 
-    LOGV("processDrmInfo - Exit");
+    ALOGV("processDrmInfo - Exit");
     return drmInfoStatus;
 }
 
 static jobject android_drm_DrmManagerClient_acquireDrmInfo(
             JNIEnv* env, jobject thiz, jint uniqueId, jobject drmInfoRequest) {
-    LOGV("acquireDrmInfo Enter");
+    ALOGV("acquireDrmInfo Enter");
     const String8 mMimeType =  Utility::getStringValue(env, drmInfoRequest, "mMimeType");
     int mInfoType = Utility::getIntValue(env, drmInfoRequest, "mInfoType");
 
@@ -536,7 +522,7 @@ static jobject android_drm_DrmManagerClient_acquireDrmInfo(
 
         String8 keyString = Utility::getStringValue(env, key);
         String8 valueString = Utility::getStringValue(env, value);
-        LOGV("Key: %s | Value: %s", keyString.string(), valueString.string());
+        ALOGV("Key: %s | Value: %s", keyString.string(), valueString.string());
 
         drmInfoReq.put(keyString, valueString);
     }
@@ -576,113 +562,66 @@ static jobject android_drm_DrmManagerClient_acquireDrmInfo(
 
     delete pDrmInfo; pDrmInfo = NULL;
 
-    LOGV("acquireDrmInfo Exit");
+    ALOGV("acquireDrmInfo Exit");
     return drmInfoObject;
 }
 
 static jint android_drm_DrmManagerClient_getDrmObjectType(
             JNIEnv* env, jobject thiz, jint uniqueId, jstring path, jstring mimeType) {
-    LOGV("getDrmObjectType Enter");
+    ALOGV("getDrmObjectType Enter");
     int drmObjectType
         = getDrmManagerClientImpl(env, thiz)
             ->getDrmObjectType(uniqueId, Utility::getStringValue(env, path),
                                 Utility::getStringValue(env, mimeType));
-    LOGV("getDrmObjectType Exit");
+    ALOGV("getDrmObjectType Exit");
     return drmObjectType;
 }
 
 static jstring android_drm_DrmManagerClient_getOriginalMimeType(
             JNIEnv* env, jobject thiz, jint uniqueId, jstring path) {
-    LOGV("getOriginalMimeType Enter");
+    ALOGV("getOriginalMimeType Enter");
     String8 mimeType
         = getDrmManagerClientImpl(env, thiz)
             ->getOriginalMimeType(uniqueId, Utility::getStringValue(env, path));
-    LOGV("getOriginalMimeType Exit");
+    ALOGV("getOriginalMimeType Exit");
     return env->NewStringUTF(mimeType.string());
 }
 
 static jint android_drm_DrmManagerClient_checkRightsStatus(
             JNIEnv* env, jobject thiz, jint uniqueId, jstring path, int action) {
-    LOGV("getOriginalMimeType Enter");
+    ALOGV("getOriginalMimeType Enter");
     int rightsStatus
         = getDrmManagerClientImpl(env, thiz)
             ->checkRightsStatus(uniqueId, Utility::getStringValue(env, path), action);
-    LOGV("getOriginalMimeType Exit");
+    ALOGV("getOriginalMimeType Exit");
     return rightsStatus;
 }
 
 static jint android_drm_DrmManagerClient_removeRights(
             JNIEnv* env, jobject thiz, jint uniqueId, jstring path) {
-    LOGV("removeRights");
+    ALOGV("removeRights");
     return getDrmManagerClientImpl(env, thiz)
                ->removeRights(uniqueId, Utility::getStringValue(env, path));
 }
 
 static jint android_drm_DrmManagerClient_removeAllRights(
             JNIEnv* env, jobject thiz, jint uniqueId) {
-    LOGV("removeAllRights");
+    ALOGV("removeAllRights");
     return getDrmManagerClientImpl(env, thiz)->removeAllRights(uniqueId);
 }
 
 static jint android_drm_DrmManagerClient_openConvertSession(
             JNIEnv* env, jobject thiz, jint uniqueId, jstring mimeType) {
-    LOGV("openConvertSession Enter");
+    ALOGV("openConvertSession Enter");
     int convertId
         = getDrmManagerClientImpl(env, thiz)
             ->openConvertSession(uniqueId, Utility::getStringValue(env, mimeType));
-    LOGV("openConvertSession Exit");
+    ALOGV("openConvertSession Exit");
     return convertId;
 }
 
-static jobject android_drm_DrmManagerClient_convertData(
-            JNIEnv* env, jobject thiz, jint uniqueId, jint convertId, jbyteArray inputData) {
-    LOGV("convertData Enter");
-
-    int dataLength = 0;
-    char* mData = Utility::getByteArrayValue(env, inputData, &dataLength);
-    const DrmBuffer buffer(mData, dataLength);
-
-    DrmConvertedStatus* pDrmConvertedStatus
-            = getDrmManagerClientImpl(env, thiz)->convertData(uniqueId, convertId, &buffer);
-
-    jclass localRef = env->FindClass("android/drm/DrmConvertedStatus");
-
-    jobject drmConvertedStatus = NULL;
-
-    if (NULL != localRef && NULL != pDrmConvertedStatus) {
-        int statusCode = pDrmConvertedStatus->statusCode;
-
-        jbyteArray dataArray = NULL;
-        if (NULL != pDrmConvertedStatus->convertedData) {
-            int length = pDrmConvertedStatus->convertedData->length;
-            dataArray = env->NewByteArray(length);
-            env->SetByteArrayRegion(dataArray, 0, length,
-                            (jbyte*) pDrmConvertedStatus->convertedData->data);
-
-            delete [] pDrmConvertedStatus->convertedData->data;
-            delete pDrmConvertedStatus->convertedData; pDrmConvertedStatus->convertedData = NULL;
-        }
-        jmethodID constructorId = env->GetMethodID(localRef, "<init>", "(I[BI)V");
-        drmConvertedStatus
-            = env->NewObject(localRef, constructorId,
-                             statusCode, dataArray, pDrmConvertedStatus->offset);
-    }
-
-    delete mData; mData = NULL;
-    delete pDrmConvertedStatus; pDrmConvertedStatus = NULL;
-
-    LOGV("convertData - Exit");
-    return drmConvertedStatus;
-}
-
-static jobject android_drm_DrmManagerClient_closeConvertSession(
-            JNIEnv* env, jobject thiz, int uniqueId, jint convertId) {
-
-    LOGV("closeConvertSession Enter");
-
-    DrmConvertedStatus* pDrmConvertedStatus
-                = getDrmManagerClientImpl(env, thiz)->closeConvertSession(uniqueId, convertId);
-
+static jobject GetConvertedStatus(JNIEnv* env, DrmConvertedStatus* pDrmConvertedStatus) {
+    ALOGV("GetConvertedStatus - Enter");
     jclass localRef = env->FindClass("android/drm/DrmConvertedStatus");
 
     jobject drmConvertedStatus = NULL;
@@ -708,17 +647,52 @@ static jobject android_drm_DrmManagerClient_closeConvertSession(
 
     delete pDrmConvertedStatus; pDrmConvertedStatus = NULL;
 
-    LOGV("closeConvertSession - Exit");
+    ALOGV("GetConvertedStatus - Exit");
     return drmConvertedStatus;
+}
+
+static jobject android_drm_DrmManagerClient_convertData(
+            JNIEnv* env, jobject thiz, jint uniqueId, jint convertId, jbyteArray inputData) {
+    ALOGV("convertData Enter");
+
+    int dataLength = 0;
+    char* mData = Utility::getByteArrayValue(env, inputData, &dataLength);
+    const DrmBuffer buffer(mData, dataLength);
+
+    DrmConvertedStatus* pDrmConvertedStatus
+            = getDrmManagerClientImpl(env, thiz)->convertData(uniqueId, convertId, &buffer);
+    jobject status = GetConvertedStatus(env, pDrmConvertedStatus);
+
+    delete[] mData;
+    mData = NULL;
+
+    ALOGV("convertData - Exit");
+    return status;
+}
+
+static jobject android_drm_DrmManagerClient_closeConvertSession(
+            JNIEnv* env, jobject thiz, int uniqueId, jint convertId) {
+
+    ALOGV("closeConvertSession Enter");
+
+    DrmConvertedStatus* pDrmConvertedStatus
+                = getDrmManagerClientImpl(env, thiz)->closeConvertSession(uniqueId, convertId);
+    jobject status = GetConvertedStatus(env, pDrmConvertedStatus);
+
+    ALOGV("closeConvertSession - Exit");
+    return status;
 }
 
 static JNINativeMethod nativeMethods[] = {
 
-    {"_initialize", "(Ljava/lang/Object;)I",
+    {"_initialize", "()I",
                                     (void*)android_drm_DrmManagerClient_initialize},
 
-    {"_finalize", "(I)V",
-                                    (void*)android_drm_DrmManagerClient_finalize},
+    {"_setListeners", "(ILjava/lang/Object;)V",
+                                    (void*)android_drm_DrmManagerClient_setListeners},
+
+    {"_release", "(I)V",
+                                    (void*)android_drm_DrmManagerClient_release},
 
     {"_getConstraints", "(ILjava/lang/String;I)Landroid/content/ContentValues;",
                                     (void*)android_drm_DrmManagerClient_getConstraintsFromContent},

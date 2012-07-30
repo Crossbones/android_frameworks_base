@@ -26,7 +26,7 @@
     <string name="status_bar_recent_remove_item_title" msgid="6026395868129852968">"सूची से निकालें"</string>
     <string name="status_bar_recent_inspect_item_title" msgid="7793624864528818569">"एप्‍लिकेशन जानकारी"</string>
     <string name="status_bar_no_recent_apps" msgid="6576392951053994640">"कोई हाल ही के एप्लिकेशन नहीं"</string>
-    <string name="status_bar_accessibility_dismiss_recents" msgid="4576076075226540105">"हाल ही के एप्लिकेशन ख़ारिज करें"</string>
+    <string name="status_bar_accessibility_dismiss_recents" msgid="4576076075226540105">"हाल ही के एप्लिकेशन खारिज करें"</string>
   <plurals name="status_bar_accessibility_recent_apps">
     <item quantity="one" msgid="5854176083865845541">"1 हाल ही का एप्लिकेशन"</item>
     <item quantity="other" msgid="1040784359794890744">"%d हाल ही के एप्लिकेशन"</item>
@@ -48,7 +48,7 @@
     <string name="status_bar_settings_notifications" msgid="397146176280905137">"सूचनाएं"</string>
     <string name="bluetooth_tethered" msgid="7094101612161133267">"Bluetooth टीदर किया गया"</string>
     <string name="status_bar_input_method_settings_configure_input_methods" msgid="3504292471512317827">"इनपुट पद्धति सेट करें"</string>
-    <string name="status_bar_use_physical_keyboard" msgid="3695516942412442936">"भौतिक कीबोर्ड का उपयोग करें"</string>
+    <string name="status_bar_use_physical_keyboard" msgid="7551903084416057810">"भौतिक कीबोर्ड"</string>
     <string name="usb_device_permission_prompt" msgid="834698001271562057">"एप्लिकेशन <xliff:g id="APPLICATION">%1$s</xliff:g> को USB उपकरण तक पहुंचने दें?"</string>
     <string name="usb_accessory_permission_prompt" msgid="5171775411178865750">"एप्लिकेशन <xliff:g id="APPLICATION">%1$s</xliff:g> को USB सहायक उपकरण तक पहुंचने दें?"</string>
     <string name="usb_device_confirm_prompt" msgid="5161205258635253206">"जब यह USB उपकरण कनेक्ट किया जाए, तब <xliff:g id="ACTIVITY">%1$s</xliff:g> को खोलें?"</string>
@@ -138,4 +138,11 @@
     <string name="gps_notification_searching_text" msgid="8574247005642736060">"GPS को खोजा जा रहा है"</string>
     <string name="gps_notification_found_text" msgid="4619274244146446464">"GPS द्वारा सेट किया गया स्‍थान"</string>
     <string name="accessibility_clear_all" msgid="5235938559247164925">"सभी सूचनाएं साफ़ करें."</string>
+    <string name="dreams_dock_launcher" msgid="3541196417659166245">"स्‍क्रीन सेवर सक्रिय करें"</string>
+    <string name="status_bar_notification_inspect_item_title" msgid="1163547729015390250">"एप्‍लिकेशन जानकारी"</string>
+    <string name="notifications_off_title" msgid="8936620513608443224">"सूचनाएं बंद"</string>
+    <string name="notifications_off_text" msgid="2529001315769385273">"सूचनाओं को पुन: चालू करने के लिए यहां टैप करें."</string>
+    <string name="accessibility_rotation_lock_off" msgid="4062780228931590069">"स्‍क्रीन स्‍वचालित रूप से घूमेगी."</string>
+    <string name="accessibility_rotation_lock_on_landscape" msgid="6731197337665366273">"स्‍क्रीन लैंडस्केप अभिविन्यास में लॉक है."</string>
+    <string name="accessibility_rotation_lock_on_portrait" msgid="5809367521644012115">"स्‍क्रीन पोर्ट्रेट अभिविन्‍यास में लॉक है."</string>
 </resources>

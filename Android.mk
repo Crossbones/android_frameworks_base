@@ -60,14 +60,13 @@ LOCAL_SRC_FILES := $(filter-out \
 ## READ ME: ########################################################
 LOCAL_SRC_FILES += \
 	core/java/android/accessibilityservice/IAccessibilityServiceConnection.aidl \
-	core/java/android/accessibilityservice/IEventListener.aidl \
+	core/java/android/accessibilityservice/IAccessibilityServiceClient.aidl \
 	core/java/android/accounts/IAccountManager.aidl \
 	core/java/android/accounts/IAccountManagerResponse.aidl \
 	core/java/android/accounts/IAccountAuthenticator.aidl \
 	core/java/android/accounts/IAccountAuthenticatorResponse.aidl \
 	core/java/android/app/IActivityController.aidl \
 	core/java/android/app/IActivityPendingResult.aidl \
-	core/java/android/app/IActivityWatcher.aidl \
 	core/java/android/app/IAlarmManager.aidl \
 	core/java/android/app/IBackupAgent.aidl \
 	core/java/android/app/IInstrumentationWatcher.aidl \
@@ -109,6 +108,9 @@ LOCAL_SRC_FILES += \
 	core/java/android/content/pm/IPackageMoveObserver.aidl \
 	core/java/android/content/pm/IPackageStatsObserver.aidl \
 	core/java/android/database/IContentObserver.aidl \
+	core/java/android/hardware/ISerialManager.aidl \
+	core/java/android/hardware/input/IInputManager.aidl \
+	core/java/android/hardware/input/IInputDevicesChangedListener.aidl \
 	core/java/android/hardware/usb/IUsbManager.aidl \
 	core/java/android/net/IConnectivityManager.aidl \
 	core/java/android/net/INetworkManagementEventObserver.aidl \
@@ -116,17 +118,24 @@ LOCAL_SRC_FILES += \
 	core/java/android/net/INetworkPolicyListener.aidl \
 	core/java/android/net/INetworkPolicyManager.aidl \
 	core/java/android/net/INetworkStatsService.aidl \
+	core/java/android/net/INetworkStatsSession.aidl \
+	core/java/android/net/nsd/INsdManager.aidl \
 	core/java/android/nfc/INdefPushCallback.aidl \
 	core/java/android/nfc/INfcAdapter.aidl \
 	core/java/android/nfc/INfcAdapterExtras.aidl \
 	core/java/android/nfc/INfcTag.aidl \
+	core/java/android/os/ICancellationSignal.aidl \
 	core/java/android/os/IHardwareService.aidl \
 	core/java/android/os/IMessenger.aidl \
 	core/java/android/os/INetworkManagementService.aidl \
 	core/java/android/os/IPermissionController.aidl \
 	core/java/android/os/IPowerManager.aidl \
 	core/java/android/os/IRemoteCallback.aidl \
+	core/java/android/os/ISchedulingPolicyService.aidl \
+	core/java/android/os/IUpdateLock.aidl \
 	core/java/android/os/IVibratorService.aidl \
+	core/java/android/service/dreams/IDreamManager.aidl \
+	core/java/android/service/dreams/IDreamService.aidl \
 	core/java/android/service/wallpaper/IWallpaperConnection.aidl \
 	core/java/android/service/wallpaper/IWallpaperEngine.aidl \
 	core/java/android/service/wallpaper/IWallpaperService.aidl \
@@ -168,6 +177,7 @@ LOCAL_SRC_FILES += \
 	core/java/com/android/internal/view/IInputMethodClient.aidl \
 	core/java/com/android/internal/view/IInputMethodManager.aidl \
 	core/java/com/android/internal/view/IInputMethodSession.aidl \
+	core/java/com/android/internal/widget/ILockSettings.aidl \
 	core/java/com/android/internal/widget/IRemoteViewsFactory.aidl \
 	core/java/com/android/internal/widget/IRemoteViewsAdapterConnection.aidl \
 	keystore/java/android/security/IKeyChainAliasCallback.aidl \
@@ -183,10 +193,13 @@ LOCAL_SRC_FILES += \
 	location/java/android/location/INetInitiatedListener.aidl \
 	media/java/android/media/IAudioService.aidl \
 	media/java/android/media/IAudioFocusDispatcher.aidl \
+	media/java/android/media/IAudioRoutesObserver.aidl \
 	media/java/android/media/IMediaScannerListener.aidl \
 	media/java/android/media/IMediaScannerService.aidl \
 	media/java/android/media/IRemoteControlClient.aidl \
 	media/java/android/media/IRemoteControlDisplay.aidl \
+	media/java/android/media/IRemoteVolumeObserver.aidl \
+	media/java/android/media/IRingtonePlayer.aidl \
 	telephony/java/com/android/internal/telephony/IPhoneStateListener.aidl \
 	telephony/java/com/android/internal/telephony/IPhoneSubInfo.aidl \
 	telephony/java/com/android/internal/telephony/ITelephony.aidl \
@@ -320,10 +333,10 @@ fwbase_dirs_to_document := \
 	 )
 
 # include definition of libcore_to_document
-include $(LOCAL_PATH)/../../libcore/Docs.mk
+include libcore/Docs.mk
 
-# include definition of libfilterfw_to_document
-include $(LOCAL_PATH)/../../system/media/mca/Docs.mk
+# include definition of junit_to_document
+include external/junit/Common.mk
 
 non_base_dirs := \
 	../../external/apache-http/src/org/apache/http
@@ -348,7 +361,7 @@ html_dirs := \
 common_src_files := \
 	$(call find-other-html-files, $(html_dirs)) \
 	$(addprefix ../../libcore/, $(call libcore_to_document, $(LOCAL_PATH)/../../libcore)) \
-	$(addprefix ../../system/media/mca/, $(call libfilterfw_to_document, $(LOCAL_PATH)/../../system/media/mca)) \
+	$(addprefix ../../external/junit/, $(call junit_to_document, $(LOCAL_PATH)/../../external/junit))
 
 # These are relative to frameworks/base
 framework_docs_LOCAL_SRC_FILES := \
@@ -399,6 +412,7 @@ framework_docs_LOCAL_DROIDDOC_OPTIONS := \
     -since ./frameworks/base/api/13.xml 13 \
     -since ./frameworks/base/api/14.txt 14 \
     -since ./frameworks/base/api/15.txt 15 \
+    -since ./frameworks/base/api/16.txt 16 \
 		-werror -hide 113 \
 		-overview $(LOCAL_PATH)/core/java/overview.html
 
@@ -443,14 +457,14 @@ web_docs_sample_code_flags := \
 		            resources/samples/HoneycombGallery "Honeycomb Gallery" \
 		-samplecode $(sample_dir)/JetBoy \
 		            resources/samples/JetBoy "JetBoy" \
+		-samplecode $(sample_dir)/KeyChainDemo \
+		            resources/samples/KeyChainDemo "KeyChain Demo" \
 		-samplecode $(sample_dir)/LunarLander \
 		            resources/samples/LunarLander "Lunar Lander" \
 		-samplecode $(sample_dir)/training/ads-and-ux \
 		            resources/samples/training/ads-and-ux "Mobile Advertisement Integration" \
 		-samplecode $(sample_dir)/MultiResolution \
 		            resources/samples/MultiResolution "Multiple Resolutions" \
-		-samplecode $(sample_dir)/NFCDemo \
-		            resources/samples/NFCDemo "NFC Demo" \
 		-samplecode $(sample_dir)/training/multiscreen/newsreader \
 		            resources/samples/newsreader "News Reader" \
 		-samplecode $(sample_dir)/NotePad \
@@ -509,7 +523,7 @@ web_docs_sample_code_flags := \
 
 ## SDK version identifiers used in the published docs
   # major[.minor] version for current SDK. (full releases only)
-framework_docs_SDK_VERSION:=4.0
+framework_docs_SDK_VERSION:=4.1
   # release version (ie "Release x")  (full releases only)
 framework_docs_SDK_REL_ID:=1
 

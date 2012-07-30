@@ -30,8 +30,9 @@ import android.net.NetworkTemplate;
 interface INetworkPolicyManager {
 
     /** Control UID policies. */
-    void setUidPolicy(int uid, int policy);
-    int getUidPolicy(int uid);
+    void setAppPolicy(int appId, int policy);
+    int getAppPolicy(int appId);
+    int[] getAppsWithPolicy(int policy);
 
     boolean isUidForeground(int uid);
 
@@ -43,12 +44,13 @@ interface INetworkPolicyManager {
     NetworkPolicy[] getNetworkPolicies();
 
     /** Snooze limit on policy matching given template. */
-    void snoozePolicy(in NetworkTemplate template);
+    void snoozeLimit(in NetworkTemplate template);
 
     /** Control if background data is restricted system-wide. */
     void setRestrictBackground(boolean restrictBackground);
     boolean getRestrictBackground();
 
     NetworkQuotaInfo getNetworkQuotaInfo(in NetworkState state);
+    boolean isNetworkMetered(in NetworkState state);
 
 }

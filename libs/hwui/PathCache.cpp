@@ -24,6 +24,28 @@
 namespace android {
 namespace uirenderer {
 
+// Defined in ShapeCache.h
+
+void computePathBounds(const SkPath* path, const SkPaint* paint,
+        float& left, float& top, float& offset, uint32_t& width, uint32_t& height) {
+    const SkRect& bounds = path->getBounds();
+    computeBounds(bounds, paint, left, top, offset, width, height);
+}
+
+void computeBounds(const SkRect& bounds, const SkPaint* paint,
+        float& left, float& top, float& offset, uint32_t& width, uint32_t& height) {
+    const float pathWidth = fmax(bounds.width(), 1.0f);
+    const float pathHeight = fmax(bounds.height(), 1.0f);
+
+    left = bounds.fLeft;
+    top = bounds.fTop;
+
+    offset = (int) floorf(fmax(paint->getStrokeWidth(), 1.0f) * 1.5f + 0.5f);
+
+    width = uint32_t(pathWidth + offset * 2.0 + 0.5);
+    height = uint32_t(pathHeight + offset * 2.0 + 0.5);
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // Path cache
 ///////////////////////////////////////////////////////////////////////////////
@@ -34,8 +56,8 @@ PathCache::PathCache(): ShapeCache<PathCacheEntry>("path",
 
 void PathCache::remove(SkPath* path) {
     // TODO: Linear search...
-    Vector<uint32_t> pathsToRemove;
-    for (uint32_t i = 0; i < mCache.size(); i++) {
+    Vector<size_t> pathsToRemove;
+    for (size_t i = 0; i < mCache.size(); i++) {
         if (mCache.getKeyAt(i).path == path) {
             pathsToRemove.push(i);
             removeTexture(mCache.getValueAt(i));
@@ -66,8 +88,16 @@ void PathCache::clearGarbage() {
 }
 
 PathTexture* PathCache::get(SkPath* path, SkPaint* paint) {
+    const SkPath* sourcePath = path->getSourcePath();
+    if (sourcePath && sourcePath->getGenerationID() == path->getGenerationID()) {
+        path = const_cast<SkPath*>(sourcePath);
+    }
+
     PathCacheEntry entry(path, paint);
     PathTexture* texture = mCache.get(entry);
+
+    float left, top, offset;
+    uint32_t width, height;
 
     if (!texture) {
         texture = addTexture(entry, path, paint);

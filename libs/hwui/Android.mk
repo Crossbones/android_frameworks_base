@@ -26,6 +26,7 @@ ifeq ($(USE_OPENGL_RENDERER),true)
 		ShapeCache.cpp \
 		SkiaColorFilter.cpp \
 		SkiaShader.cpp \
+		Snapshot.cpp \
 		TextureCache.cpp \
 		TextDropShadowCache.cpp
 	
@@ -38,7 +39,7 @@ ifeq ($(USE_OPENGL_RENDERER),true)
 		external/skia/src/ports \
 		external/skia/include/utils
 
-	LOCAL_CFLAGS += -DUSE_OPENGL_RENDERER
+	LOCAL_CFLAGS += -DUSE_OPENGL_RENDERER -DGL_GLEXT_PROTOTYPES
 	LOCAL_CFLAGS += -fvisibility=hidden
 	LOCAL_MODULE_CLASS := SHARED_LIBRARIES
 	LOCAL_SHARED_LIBRARIES := libcutils libutils libGLESv2 libskia libui

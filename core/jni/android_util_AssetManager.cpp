@@ -31,9 +31,9 @@
 #include <android_runtime/AndroidRuntime.h>
 #include <utils/Log.h>
 
-#include <utils/Asset.h>
-#include <utils/AssetManager.h>
-#include <utils/ResourceTypes.h>
+#include <androidfw/Asset.h>
+#include <androidfw/AssetManager.h>
+#include <androidfw/ResourceTypes.h>
 
 #include <stdio.h>
 
@@ -121,7 +121,7 @@ static jint android_content_AssetManager_openAsset(JNIEnv* env, jobject clazz,
         return 0;
     }
 
-    LOGV("openAsset in %p (Java object %p)\n", am, clazz);
+    ALOGV("openAsset in %p (Java object %p)\n", am, clazz);
 
     ScopedUtfChars fileName8(env, fileName);
     if (fileName8.c_str() == NULL) {
@@ -186,7 +186,7 @@ static jobject android_content_AssetManager_openAssetFd(JNIEnv* env, jobject cla
         return NULL;
     }
 
-    LOGV("openAssetFd in %p (Java object %p)\n", am, clazz);
+    ALOGV("openAssetFd in %p (Java object %p)\n", am, clazz);
 
     ScopedUtfChars fileName8(env, fileName);
     if (fileName8.c_str() == NULL) {
@@ -215,7 +215,7 @@ static jint android_content_AssetManager_openNonAssetNative(JNIEnv* env, jobject
         return 0;
     }
 
-    LOGV("openNonAssetNative in %p (Java object %p)\n", am, clazz);
+    ALOGV("openNonAssetNative in %p (Java object %p)\n", am, clazz);
 
     ScopedUtfChars fileName8(env, fileName);
     if (fileName8.c_str() == NULL) {
@@ -252,7 +252,7 @@ static jobject android_content_AssetManager_openNonAssetFdNative(JNIEnv* env, jo
         return NULL;
     }
 
-    LOGV("openNonAssetFd in %p (Java object %p)\n", am, clazz);
+    ALOGV("openNonAssetFd in %p (Java object %p)\n", am, clazz);
 
     ScopedUtfChars fileName8(env, fileName);
     if (fileName8.c_str() == NULL) {
@@ -434,12 +434,12 @@ static jint android_content_AssetManager_addAssetPath(JNIEnv* env, jobject clazz
 {
     ScopedUtfChars path8(env, path);
     if (path8.c_str() == NULL) {
-        return NULL;
+        return 0;
     }
 
     AssetManager* am = assetManagerForJavaObject(env, clazz);
     if (am == NULL) {
-        return JNI_FALSE;
+        return 0;
     }
 
     void* cookie;
@@ -703,7 +703,7 @@ static jint android_content_AssetManager_loadResourceValue(JNIEnv* env, jobject 
 #endif
     uint32_t ref = ident;
     if (resolve) {
-        block = res.resolveReference(&value, block, &ref);
+        block = res.resolveReference(&value, block, &ref, &typeSpecFlags, &config);
 #if THROW_ON_BAD_ID
         if (block == BAD_INDEX) {
             jniThrowException(env, "java/lang/IllegalStateException", "Bad resource!");
@@ -1365,7 +1365,7 @@ static jint android_content_AssetManager_openXmlAssetNative(JNIEnv* env, jobject
         return 0;
     }
 
-    LOGV("openXmlAsset in %p (Java object %p)\n", am, clazz);
+    ALOGV("openXmlAsset in %p (Java object %p)\n", am, clazz);
 
     ScopedUtfChars fileName8(env, fileName);
     if (fileName8.c_str() == NULL) {
@@ -1571,7 +1571,7 @@ static void android_content_AssetManager_init(JNIEnv* env, jobject clazz)
 
     am->addDefaultAssets();
 
-    LOGV("Created AssetManager %p for Java object %p\n", am, clazz);
+    ALOGV("Created AssetManager %p for Java object %p\n", am, clazz);
     env->SetIntField(clazz, gAssetManagerOffsets.mObject, (jint)am);
 }
 
@@ -1579,7 +1579,7 @@ static void android_content_AssetManager_destroy(JNIEnv* env, jobject clazz)
 {
     AssetManager* am = (AssetManager*)
         (env->GetIntField(clazz, gAssetManagerOffsets.mObject));
-    LOGV("Destroying AssetManager %p for Java object %p\n", am, clazz);
+    ALOGV("Destroying AssetManager %p for Java object %p\n", am, clazz);
     if (am != NULL) {
         delete am;
         env->SetIntField(clazz, gAssetManagerOffsets.mObject, 0);

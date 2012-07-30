@@ -54,8 +54,8 @@ static jclass   gFontMetricsInt_class;
 static JMetricsID gFontMetricsInt_fieldID;
 
 static void defaultSettingsForAndroid(SkPaint* paint) {
-    // utf16 is required for java
-    paint->setTextEncoding(SkPaint::kUTF16_TextEncoding);
+    // GlyphID encoding is required because we are using Harfbuzz shaping
+    paint->setTextEncoding(SkPaint::kGlyphID_TextEncoding);
 }
 
 class SkPaintGlue {
@@ -254,6 +254,13 @@ public:
         obj->setTextAlign(align);
     }
 
+    static void setTextLocale(JNIEnv* env, jobject clazz, SkPaint* obj, jstring locale) {
+        const char* localeArray = env->GetStringUTFChars(locale, NULL);
+        SkString skLocale(localeArray);
+        obj->setTextLocale(skLocale);
+        env->ReleaseStringUTFChars(locale, localeArray);
+    }
+
     static jfloat getTextSize(JNIEnv* env, jobject paint) {
         NPE_CHECK_RETURN_ZERO(env, paint);
         return SkScalarToFloat(GraphicsJNI::getNativePaint(env, paint)->getTextSize());
@@ -350,14 +357,10 @@ public:
         SkPaint* paint = GraphicsJNI::getNativePaint(env, jpaint);
         const jchar* textArray = env->GetCharArrayElements(text, NULL);
         jfloat result = 0;
-#if RTL_USE_HARFBUZZ
+
         TextLayout::getTextRunAdvances(paint, textArray, index, count, textLength,
                 paint->getFlags(), NULL /* dont need all advances */, &result);
-#else
-        // we double count, since measureText wants a byteLength
-        SkScalar width = paint->measureText(textArray + index, count << 1);
-        result = SkScalarToFloat(width);
-#endif
+
         env->ReleaseCharArrayElements(text, const_cast<jchar*>(textArray), JNI_ABORT);
         return result;
     }
@@ -380,13 +383,9 @@ public:
         SkPaint* paint = GraphicsJNI::getNativePaint(env, jpaint);
         jfloat width = 0;
 
-#if RTL_USE_HARFBUZZ
         TextLayout::getTextRunAdvances(paint, textArray, start, count, textLength,
                 paint->getFlags(), NULL /* dont need all advances */, &width);
-#else
 
-        width = SkScalarToFloat(paint->measureText(textArray + start, count << 1));
-#endif
         env->ReleaseStringChars(text, textArray);
         return width;
     }
@@ -404,12 +403,9 @@ public:
         SkPaint* paint = GraphicsJNI::getNativePaint(env, jpaint);
         jfloat width = 0;
 
-#if RTL_USE_HARFBUZZ
         TextLayout::getTextRunAdvances(paint, textArray, 0, textLength, textLength,
                 paint->getFlags(), NULL /* dont need all advances */, &width);
-#else
-        width = SkScalarToFloat(paint->measureText(textArray, textLength << 1));
-#endif
+
         env->ReleaseStringChars(text, textArray);
         return width;
     }
@@ -434,17 +430,9 @@ public:
         AutoJavaFloatArray autoWidths(env, widths, count);
         jfloat* widthsArray = autoWidths.ptr();
 
-#if RTL_USE_HARFBUZZ
         TextLayout::getTextRunAdvances(paint, text, 0, count, count,
                 paint->getFlags(), widthsArray, NULL /* dont need totalAdvance */);
-#else
-        SkScalar* scalarArray = (SkScalar*)widthsArray;
 
-        count = paint->getTextWidths(text, count << 1, scalarArray);
-        for (int i = 0; i < count; i++) {
-            widthsArray[i] = SkScalarToFloat(scalarArray[i]);
-        }
-#endif
         return count;
     }
 
@@ -484,10 +472,10 @@ public:
 
         jchar* glyphsArray = env->GetCharArrayElements(glyphs, NULL);
 
-        TextLayoutCacheValue value;
-        value.computeValues(paint, text, start, count, contextCount, flags);
-        const jchar* shapedGlyphs = value.getGlyphs();
-        size_t glyphsCount = value.getGlyphsCount();
+        sp<TextLayoutValue> value = TextLayoutEngine::getInstance().getValue(paint,
+                text, start, count, contextCount, flags);
+        const jchar* shapedGlyphs = value->getGlyphs();
+        size_t glyphsCount = value->getGlyphsCount();
         memcpy(glyphsArray, shapedGlyphs, sizeof(jchar) * glyphsCount);
 
         env->ReleaseCharArrayElements(glyphs, glyphsArray, JNI_ABORT);
@@ -597,54 +585,11 @@ public:
 
     static jint doTextRunCursor(JNIEnv *env, SkPaint* paint, const jchar *text, jint start,
             jint count, jint flags, jint offset, jint opt) {
-#if RTL_USE_HARFBUZZ
         jfloat scalarArray[count];
 
         TextLayout::getTextRunAdvances(paint, text, start, count, count, flags,
                 scalarArray, NULL /* dont need totalAdvance */);
-#else
-        SkScalar scalarArray[count];
-        jchar buffer[count];
 
-        // this is where we'd call harfbuzz
-        // for now we just use ushape.c and widths returned from skia
-
-        int widths;
-        if (flags & 0x1) { // rtl, call arabic shaping in case
-            UErrorCode status = U_ZERO_ERROR;
-            // Use fixed length since we need to keep start and count valid
-            u_shapeArabic(text + start, count, buffer, count,
-                    U_SHAPE_LENGTH_FIXED_SPACES_NEAR | U_SHAPE_TEXT_DIRECTION_LOGICAL |
-                    U_SHAPE_LETTERS_SHAPE | U_SHAPE_X_LAMALEF_SUB_ALTERNATE, &status);
-            // we shouldn't fail unless there's an out of memory condition,
-            // in which case we're hosed anyway
-            for (int i = 0; i < count; ++i) {
-              if (buffer[i] == 0xffff) {
-                buffer[i] = 0x200b; // zero-width-space for skia
-              }
-            }
-            widths = paint->getTextWidths(buffer, count << 1, scalarArray);
-        } else {
-            widths = paint->getTextWidths(text + start, count << 1, scalarArray);
-        }
-
-        if (widths < count) {
-            // Skia operates on code points, not code units, so surrogate pairs return only one
-            // value. Expand the result so we have one value per UTF-16 code unit.
-
-            // Note, skia's getTextWidth gets confused if it encounters a surrogate pair,
-            // leaving the remaining widths zero.  Not nice.
-            const jchar *chars = text + start;
-            for (int i = count, p = widths - 1; --i > p;) {
-                if (chars[i] >= 0xdc00 && chars[i] < 0xe000 &&
-                        chars[i-1] >= 0xd800 && chars[i-1] < 0xdc00) {
-                    scalarArray[i] = 0;
-                } else {
-                  scalarArray[i] = scalarArray[--p];
-                }
-            }
-        }
-#endif
         jint pos = offset - start;
         switch (opt) {
         case AFTER:
@@ -735,13 +680,16 @@ public:
         }
     }
 
-    static int breakText(JNIEnv* env, const SkPaint& paint, const jchar text[],
+    static int breakText(JNIEnv* env, SkPaint& paint, const jchar text[],
                          int count, float maxWidth, jfloatArray jmeasured,
                          SkPaint::TextBufferDirection tbd) {
-        SkASSERT(paint.getTextEncoding() == SkPaint::kUTF16_TextEncoding);
-
+        sp<TextLayoutValue> value = TextLayoutEngine::getInstance().getValue(&paint,
+                text, 0, count, count, paint.getFlags());
+        if (value == NULL) {
+            return 0;
+        }
         SkScalar     measured;
-        size_t       bytes = paint.breakText(text, count << 1,
+        size_t       bytes = paint.breakText(value->getGlyphs(), value->getGlyphsCount() << 1,
                                    SkFloatToScalar(maxWidth), &measured, tbd);
         SkASSERT((bytes & 1) == 0);
 
@@ -805,7 +753,12 @@ public:
         SkRect  r;
         SkIRect ir;
 
-        paint.measureText(text, count << 1, &r);
+        sp<TextLayoutValue> value = TextLayoutEngine::getInstance().getValue(&paint,
+                text, 0, count, count, paint.getFlags());
+        if (value == NULL) {
+            return;
+        }
+        paint.measureText(value->getGlyphs(), value->getGlyphsCount() << 1, &r);
         r.roundOut(&ir);
         GraphicsJNI::irect_to_jrect(ir, env, bounds);
     }
@@ -871,6 +824,7 @@ static JNINativeMethod methods[] = {
     {"native_setRasterizer","(II)I", (void*) SkPaintGlue::setRasterizer},
     {"native_getTextAlign","(I)I", (void*) SkPaintGlue::getTextAlign},
     {"native_setTextAlign","(II)V", (void*) SkPaintGlue::setTextAlign},
+    {"native_setTextLocale","(ILjava/lang/String;)V", (void*) SkPaintGlue::setTextLocale},
     {"getTextSize","()F", (void*) SkPaintGlue::getTextSize},
     {"setTextSize","(F)V", (void*) SkPaintGlue::setTextSize},
     {"getTextScaleX","()F", (void*) SkPaintGlue::getTextScaleX},

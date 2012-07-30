@@ -198,8 +198,10 @@ please see styles_device_defaults.xml.
     <!-- A special animation we can use for recent applications,
          for devices that can support it (do alpha transformations). -->
     <style name="Animation.RecentApplications">
-        <item name="windowEnterAnimation">@anim/fade_in</item>
-        <item name="windowExitAnimation">@anim/fade_out</item>
+        <item name="windowEnterAnimation">@anim/recents_fade_in</item>
+        <item name="windowShowAnimation">@anim/recents_fade_in</item>
+        <item name="windowExitAnimation">@anim/recents_fade_out</item>
+        <item name="windowHideAnimation">@anim/recents_fade_out</item>
     </style>
 
     <!-- A special animation value used internally for popup windows. -->
@@ -217,6 +219,12 @@ please see styles_device_defaults.xml.
         <item name="windowExitAnimation">@anim/fade_out</item>
     </style>
 
+    <!-- Window animations for screen savers. {@hide} -->
+    <style name="Animation.Dream">
+        <item name="windowEnterAnimation">@anim/slow_fade_in</item>
+        <item name="windowExitAnimation">@anim/fast_fade_out</item>
+    </style>
+
     <!-- Status Bar Styles -->
     <style name="TextAppearance.StatusBar">
         <item name="android:textAppearance">?android:attr/textAppearanceSmall</item>
@@ -231,22 +239,28 @@ please see styles_device_defaults.xml.
     </style>
     <!-- Notification content styles -->
     <style name="TextAppearance.StatusBar.EventContent">
-        <item name="android:textColor">?android:attr/textColorSecondary</item>
-        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">#999999</item>
+        <item name="android:textSize">@dimen/notification_text_size</item>
     </style>
     <style name="TextAppearance.StatusBar.EventContent.Title">
-        <item name="android:textColor">?android:attr/textColorPrimary</item>
-        <item name="android:textSize">16sp</item>
+        <item name="android:textColor">#ffffff</item>
+        <item name="android:fontFamily">sans-serif-light</item>
+        <item name="android:textSize">@dimen/notification_title_text_size</item>
         <item name="android:textStyle">bold</item>
     </style>
     <style name="TextAppearance.StatusBar.EventContent.Line2">
-        <item name="android:textSize">13sp</item>
+        <item name="android:textSize">@dimen/notification_subtext_size</item>
     </style>
     <style name="TextAppearance.StatusBar.EventContent.Info">
-        <!-- inherit all -->
+        <item name="android:textSize">@dimen/notification_subtext_size</item>
+        <item name="android:textColor">#999999</item>
     </style>
     <style name="TextAppearance.StatusBar.EventContent.Time">
-        <!-- inherit all -->
+        <item name="android:textSize">@dimen/notification_subtext_size</item>
+        <item name="android:textColor">#999999</item>
+    </style>
+    <style name="TextAppearance.StatusBar.EventContent.Emphasis">
+        <item name="android:textColor">#CCCCCC</item>
     </style>
 
     <style name="TextAppearance.Small.CalendarViewWeekDayView">
@@ -258,7 +272,7 @@ please see styles_device_defaults.xml.
     </style>
 
     <style name="TextAppearance.EasyCorrectSuggestion" parent="TextAppearance.Suggestion">
-        <item name="android:textUnderlineColor">#ffC8C8C8</item>
+        <item name="android:textUnderlineColor">#88C8C8C8</item>
     </style>
 
     <style name="TextAppearance.MisspelledSuggestion" parent="TextAppearance.Suggestion">
@@ -519,38 +533,19 @@ please see styles_device_defaults.xml.
     </style>
 
     <style name="Widget.NumberPicker">
+        <item name="android:internalLayout">@android:layout/number_picker</item>
         <item name="android:orientation">vertical</item>
         <item name="android:fadingEdge">vertical</item>
         <item name="android:fadingEdgeLength">50dip</item>
-        <item name="android:flingable">false</item>
     </style>
 
     <style name="Widget.TimePicker">
-        <item name="android:layout">@android:layout/time_picker</item>
+        <item name="android:internalLayout">@android:layout/time_picker</item>
     </style>
 
     <style name="Widget.DatePicker">
-        <item name="android:layout">@android:layout/date_picker</item>
+        <item name="android:internalLayout">@android:layout/date_picker</item>
         <item name="android:calendarViewShown">false</item>
-    </style>
-
-    <style name="Widget.ImageButton.NumberPickerUpButton">
-        <item name="android:background">@android:drawable/numberpicker_up_btn</item>
-        <item name="android:paddingTop">22dip</item>
-        <item name="android:paddingBottom">22dip</item>
-    </style>
-
-    <style name="Widget.ImageButton.NumberPickerDownButton">
-        <item name="android:background">@android:drawable/numberpicker_down_btn</item>
-        <item name="android:paddingTop">22dip</item>
-        <item name="android:paddingBottom">22dip</item>
-    </style>
-
-    <style name="Widget.EditText.NumberPickerInputText">
-        <item name="android:textAppearance">@style/TextAppearance.Large.Inverse.NumberPickerInputText</item>
-        <item name="android:gravity">center</item>
-        <item name="android:singleLine">true</item>
-        <item name="android:background">@drawable/numberpicker_input</item>
     </style>
 
     <style name="Widget.AutoCompleteTextView" parent="Widget.EditText">
@@ -642,6 +637,7 @@ please see styles_device_defaults.xml.
 
     <style name="Widget.WebView">
         <item name="android:focusable">true</item>
+        <item name="android:focusableInTouchMode">true</item>
         <item name="android:scrollbars">horizontal|vertical</item>
     </style>
 
@@ -824,6 +820,10 @@ please see styles_device_defaults.xml.
 
     <style name="TextAppearance.Widget.IconMenu.Item" parent="TextAppearance.Small">
         <item name="android:textColor">?textColorPrimary</item>
+        <!-- dp is used on purpose here instead of sp; there is not space
+             for larger font sizes based on the user setting. Newer apps
+             should not receive the legacy icon menu panel. -->
+        <item name="android:textSize">14dp</item>
     </style>
 
     <style name="TextAppearance.Widget.EditText">
@@ -1171,6 +1171,7 @@ please see styles_device_defaults.xml.
         <item name="android:minWidth">@android:dimen/action_button_min_width</item>
         <item name="android:minHeight">?android:attr/actionBarSize</item>
         <item name="android:gravity">center</item>
+        <item name="android:maxLines">2</item>
     </style>
 
     <style name="Widget.ActionButton.Overflow">
@@ -1650,46 +1651,23 @@ please see styles_device_defaults.xml.
     </style>
 
     <style name="Widget.Holo.NumberPicker" parent="Widget.NumberPicker">
+        <item name="android:internalLayout">@android:layout/number_picker_with_selector_wheel</item>
         <item name="android:solidColor">@android:color/transparent</item>
-        <item name="android:flingable">true</item>
         <item name="android:selectionDivider">@android:drawable/numberpicker_selection_divider</item>
         <item name="android:selectionDividerHeight">2dip</item>
-        <item name="android:minWidth">48dip</item>
-        <item name="android:maxHeight">200dip</item>
+        <item name="android:selectionDividersDistance">48dip</item>
+        <item name="android:internalMinWidth">64dip</item>
+        <item name="android:internalMaxHeight">180dip</item>
+        <item name="virtualButtonPressedDrawable">?android:attr/selectableItemBackground</item>
     </style>
 
     <style name="Widget.Holo.TimePicker" parent="Widget.TimePicker">
-        <item name="android:layout">@android:layout/time_picker_holo</item>
+        <item name="android:internalLayout">@android:layout/time_picker_holo</item>
     </style>
 
     <style name="Widget.Holo.DatePicker" parent="Widget.DatePicker">
-        <item name="android:layout">@android:layout/date_picker_holo</item>
+        <item name="android:internalLayout">@android:layout/date_picker_holo</item>
         <item name="android:calendarViewShown">true</item>
-    </style>
-
-    <style name="Widget.Holo.ImageButton.NumberPickerUpButton">
-        <item name="android:background">@null</item>
-        <item name="android:src">@android:drawable/numberpicker_up_btn_holo_dark</item>
-        <item name="android:paddingTop">16dip</item>
-        <item name="android:paddingBottom">22dip</item>
-    </style>
-
-    <style name="Widget.Holo.ImageButton.NumberPickerDownButton">
-        <item name="android:background">@null</item>
-        <item name="android:src">@android:drawable/numberpicker_down_btn_holo_dark</item>
-        <item name="android:paddingTop">22dip</item>
-        <item name="android:paddingBottom">16dip</item>
-    </style>
-
-    <style name="Widget.Holo.EditText.NumberPickerInputText">
-        <item name="android:paddingTop">13sp</item>
-        <item name="android:paddingBottom">13sp</item>
-        <item name="android:paddingLeft">2sp</item>
-        <item name="android:paddingRight">2sp</item>
-        <item name="android:gravity">center</item>
-        <item name="android:singleLine">true</item>
-        <item name="android:textSize">18sp</item>
-        <item name="android:background">@null</item>
     </style>
 
     <style name="Widget.Holo.ActivityChooserView" parent="Widget.ActivityChooserView">
@@ -1716,7 +1694,6 @@ please see styles_device_defaults.xml.
 
     <style name="Widget.Holo.ProgressBar" parent="Widget.ProgressBar">
         <item name="android:indeterminateDrawable">@android:drawable/progress_medium_holo</item>
-        <item name="android:animationResolution">33</item>
     </style>
 
     <style name="Widget.Holo.ProgressBar.Horizontal" parent="Widget.ProgressBar.Horizontal">
@@ -1728,7 +1705,6 @@ please see styles_device_defaults.xml.
 
     <style name="Widget.Holo.ProgressBar.Small" parent="Widget.ProgressBar.Small">
         <item name="android:indeterminateDrawable">@android:drawable/progress_small_holo</item>
-        <item name="android:animationResolution">33</item>
     </style>
 
     <style name="Widget.Holo.ProgressBar.Small.Title">
@@ -1736,7 +1712,6 @@ please see styles_device_defaults.xml.
 
     <style name="Widget.Holo.ProgressBar.Large" parent="Widget.ProgressBar.Large">
         <item name="android:indeterminateDrawable">@android:drawable/progress_large_holo</item>
-        <item name="android:animationResolution">33</item>
     </style>
 
     <style name="Widget.Holo.ProgressBar.Inverse">
@@ -1900,6 +1875,7 @@ please see styles_device_defaults.xml.
         <item name="android:paddingLeft">12dip</item>
         <item name="android:paddingRight">12dip</item>
         <item name="android:scaleType">center</item>
+        <item name="android:maxLines">2</item>
     </style>
 
     <style name="Widget.Holo.ActionButton.Overflow">
@@ -2104,17 +2080,6 @@ please see styles_device_defaults.xml.
     </style>
 
     <style name="Widget.Holo.Light.DatePicker" parent="Widget.Holo.DatePicker">
-    </style>
-
-    <style name="Widget.Holo.Light.ImageButton.NumberPickerUpButton" parent="Widget.Holo.ImageButton.NumberPickerUpButton">
-        <item name="android:src">@android:drawable/numberpicker_up_btn_holo_light</item>
-    </style>
-
-    <style name="Widget.Holo.Light.ImageButton.NumberPickerDownButton" parent="Widget.Holo.ImageButton.NumberPickerDownButton">
-        <item name="android:src">@android:drawable/numberpicker_down_btn_holo_light</item>
-    </style>
-
-    <style name="Widget.Holo.Light.EditText.NumberPickerInputText" parent="Widget.Holo.EditText.NumberPickerInputText">
     </style>
 
     <style name="Widget.Holo.Light.ActivityChooserView" parent="Widget.Holo.ActivityChooserView">
@@ -2447,4 +2412,52 @@ please see styles_device_defaults.xml.
         <item name="android:pointerIconSpotTouch">@android:drawable/pointer_spot_touch_icon</item>
         <item name="android:pointerIconSpotAnchor">@android:drawable/pointer_spot_anchor_icon</item>
     </style>
+
+    <!-- Wifi dialog styles -->
+    <!-- @hide -->
+    <style name="wifi_item">
+        <item name="android:layout_width">200dip</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">8dip</item>
+        <item name="android:layout_marginLeft">16dip</item>
+        <item name="android:layout_marginRight">16dip</item>
+        <item name="android:orientation">vertical</item>
+        <item name="android:gravity">left</item>
+    </style>
+
+    <!-- @hide -->
+    <style name="wifi_item_label">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">14sp</item>
+    </style>
+
+    <!-- @hide -->
+    <style name="wifi_item_content">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">18sp</item>
+    </style>
+
+    <!-- @hide -->
+    <style name="wifi_section">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:orientation">vertical</item>
+    </style>
+
+    <style name="Widget.Holo.MediaRouteButton">
+        <item name="android:background">?android:attr/selectableItemBackground</item>
+        <item name="android:externalRouteEnabledDrawable">@drawable/ic_media_route_holo_dark</item>
+        <item name="android:minWidth">56dp</item>
+        <item name="android:minHeight">48dp</item>
+    </style>
+
+    <style name="Widget.Holo.Light.MediaRouteButton">
+        <item name="android:background">?android:attr/selectableItemBackground</item>
+        <item name="android:externalRouteEnabledDrawable">@drawable/ic_media_route_holo_light</item>
+        <item name="android:minWidth">56dp</item>
+        <item name="android:minHeight">48dp</item>
+    </style>
+
 </resources>

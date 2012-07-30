@@ -48,7 +48,7 @@
     <string name="status_bar_settings_notifications" msgid="397146176280905137">"Notificacions"</string>
     <string name="bluetooth_tethered" msgid="7094101612161133267">"Bluetooth sense fil"</string>
     <string name="status_bar_input_method_settings_configure_input_methods" msgid="3504292471512317827">"Configura els mètodes d\'entrada"</string>
-    <string name="status_bar_use_physical_keyboard" msgid="3695516942412442936">"Utilitza un teclat físic"</string>
+    <string name="status_bar_use_physical_keyboard" msgid="7551903084416057810">"Teclat físic"</string>
     <string name="usb_device_permission_prompt" msgid="834698001271562057">"Vols permetre que l\'aplicació <xliff:g id="APPLICATION">%1$s</xliff:g> accedeixi al dispositiu USB?"</string>
     <string name="usb_accessory_permission_prompt" msgid="5171775411178865750">"Vols permetre que l\'aplicació <xliff:g id="APPLICATION">%1$s</xliff:g> accedeixi a l\'accessori USB?"</string>
     <string name="usb_device_confirm_prompt" msgid="5161205258635253206">"Vols que s\'obri <xliff:g id="ACTIVITY">%1$s</xliff:g> quan aquest dispositiu USB estigui connectat?"</string>
@@ -140,4 +140,11 @@
     <string name="gps_notification_searching_text" msgid="8574247005642736060">"S\'està cercant un GPS"</string>
     <string name="gps_notification_found_text" msgid="4619274244146446464">"S\'ha establert la ubicació per GPS"</string>
     <string name="accessibility_clear_all" msgid="5235938559247164925">"Esborra totes les notificacions."</string>
+    <string name="dreams_dock_launcher" msgid="3541196417659166245">"Activa el protector de pantalla"</string>
+    <string name="status_bar_notification_inspect_item_title" msgid="1163547729015390250">"Informació de l\'aplicació"</string>
+    <string name="notifications_off_title" msgid="8936620513608443224">"Notificacions desactivades"</string>
+    <string name="notifications_off_text" msgid="2529001315769385273">"Pica aquí per tornar a activar les notificacions."</string>
+    <string name="accessibility_rotation_lock_off" msgid="4062780228931590069">"La pantalla girarà automàticament."</string>
+    <string name="accessibility_rotation_lock_on_landscape" msgid="6731197337665366273">"La pantalla està bloquejada en orientació horitzontal."</string>
+    <string name="accessibility_rotation_lock_on_portrait" msgid="5809367521644012115">"La pantalla està bloquejada en orientació vertical."</string>
 </resources>

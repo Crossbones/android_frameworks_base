@@ -48,12 +48,12 @@
     <string name="status_bar_settings_notifications" msgid="397146176280905137">"ማሳወቂያዎች"</string>
     <string name="bluetooth_tethered" msgid="7094101612161133267">"ብሉቱዝ አያይዝ"</string>
     <string name="status_bar_input_method_settings_configure_input_methods" msgid="3504292471512317827">"የግቤት ስልቶችን አዘጋጅ"</string>
-    <string name="status_bar_use_physical_keyboard" msgid="3695516942412442936">"የቁልፍ ሰሌዳ ተጠቀም"</string>
+    <string name="status_bar_use_physical_keyboard" msgid="7551903084416057810">"የሚዳሰስ የቁልፍ ሰሌዳ"</string>
     <string name="usb_device_permission_prompt" msgid="834698001271562057">"መተግበሪያ <xliff:g id="APPLICATION">%1$s</xliff:g> የUSB መሣሪያን ለመድረስ ይፍቀድ?"</string>
     <string name="usb_accessory_permission_prompt" msgid="5171775411178865750">"መተግበሪያ <xliff:g id="APPLICATION">%1$s</xliff:g> የUSB ተቀጥላ ላይ እንዲደርስ ፍቀድ?"</string>
     <string name="usb_device_confirm_prompt" msgid="5161205258635253206">"የዚህ USB ተቀጥላ ሲያያዝ <xliff:g id="ACTIVITY">%1$s</xliff:g>ይከፈት?"</string>
     <string name="usb_accessory_confirm_prompt" msgid="3808984931830229888">"የዚህ USB ተቀጥላ ሲያያዝ <xliff:g id="ACTIVITY">%1$s</xliff:g>  ይከፈት?"</string>
-    <string name="usb_accessory_uri_prompt" msgid="513450621413733343">"ምንም የተጫኑ መተግበሪያዎች ከዚህ የUSB ተቀጥላ ጋር አይሰሩም። በ<xliff:g id="URL">%1$s</xliff:g> ስለዚህ ተቀጥላ የበለጠ እወቅ።"</string>
+    <string name="usb_accessory_uri_prompt" msgid="513450621413733343">"ምንም የተጫኑ መተግበሪያዎች ከዚህ የUSB ተቀጥላ ጋር አይሰሩም። በ<xliff:g id="URL">%1$s</xliff:g> ስለዚህ ተቀጥላ የበለጠ ለመረዳት።"</string>
     <string name="title_usb_accessory" msgid="4966265263465181372">"የUSB  ተቀጥላ"</string>
     <string name="label_view" msgid="6304565553218192990">"ዕይታ"</string>
     <string name="always_use_device" msgid="1450287437017315906">"ለዚህ USB  መሣሪያ በነባሪነት ተጠቀም"</string>
@@ -66,7 +66,7 @@
     <string name="screenshot_saving_title" msgid="8242282144535555697">"ቅጽበታዊ ገጽ እይታ በማስቀመጥ ላይ..."</string>
     <string name="screenshot_saving_text" msgid="2419718443411738818">"ቅጽበታዊ ገጽ እይታ እየተቀመጠ ነው::"</string>
     <string name="screenshot_saved_title" msgid="6461865960961414961">"ቅጽበታዊ ገጽ እይታ ተቀርጿል"</string>
-    <string name="screenshot_saved_text" msgid="1152839647677558815">"ያንተን ቅጽበታዊ ገጽ እይታ ለማየት ንካ"</string>
+    <string name="screenshot_saved_text" msgid="1152839647677558815">"የአንተን ቅጽበታዊ ገጽ እይታ ለማየት ንካ"</string>
     <string name="screenshot_failed_title" msgid="705781116746922771">"ቅጽበታዊ ገጽ እይታ መቅረጽ አልተቻለም::"</string>
     <string name="screenshot_failed_text" msgid="8134011269572415402">"የማያ ፎቶማስቀመጥ አልተቻለም። ማከማቻም አገልግሎት ላይ ሊሆን ይችላል።"</string>
     <string name="usb_preference_title" msgid="6551050377388882787">"የUSB ፋይል ሰደዳ አማራጮች"</string>
@@ -118,7 +118,7 @@
     <string name="accessibility_bluetooth_tether" msgid="4102784498140271969">"ብሉቱዝ ማያያዝ።"</string>
     <string name="accessibility_airplane_mode" msgid="834748999790763092">"የአውሮፕላን ሁነታ።"</string>
     <string name="accessibility_battery_level" msgid="7451474187113371965">"የባትሪ <xliff:g id="NUMBER">%d</xliff:g> መቶኛ።"</string>
-    <string name="accessibility_settings_button" msgid="799583911231893380">"የስርዓት ቅንጅቶች"</string>
+    <string name="accessibility_settings_button" msgid="799583911231893380">"የስርዓት ቅንብሮች"</string>
     <string name="accessibility_notifications_button" msgid="4498000369779421892">"ማሳወቂያዎች"</string>
     <string name="accessibility_remove_notification" msgid="3603099514902182350">"ማሳወቂያ አጥራ"</string>
     <string name="accessibility_gps_enabled" msgid="3511469499240123019">"GPS ነቅቷል።"</string>
@@ -138,4 +138,11 @@
     <string name="gps_notification_searching_text" msgid="8574247005642736060">"ለGPS በመፈለግ ላይ"</string>
     <string name="gps_notification_found_text" msgid="4619274244146446464">"በ GPS የተዘጋጀ ሥፍራ"</string>
     <string name="accessibility_clear_all" msgid="5235938559247164925">"ሁሉንም ማሳወቂያዎች አጽዳ"</string>
+    <string name="dreams_dock_launcher" msgid="3541196417659166245">" ገፁማያ ማቆያ አንቃ"</string>
+    <string name="status_bar_notification_inspect_item_title" msgid="1163547729015390250">"የመተግበሪያ መረጃ"</string>
+    <string name="notifications_off_title" msgid="8936620513608443224">"ማሳወቂያዎች ጠፍተዋል"</string>
+    <string name="notifications_off_text" msgid="2529001315769385273">"ማስታወቅያዎችን መልሶ ለማብራት እዚህ ጋር መታ አድርግ።"</string>
+    <string name="accessibility_rotation_lock_off" msgid="4062780228931590069">"ማያ ገጽ በራስ ሰር ይዞራል።"</string>
+    <string name="accessibility_rotation_lock_on_landscape" msgid="6731197337665366273">"ማያ ገጽ በወርድ ገፅ አቀማመጥ ተቆልፏል።"</string>
+    <string name="accessibility_rotation_lock_on_portrait" msgid="5809367521644012115">"ማያ ገጽ በቁም ገፅ አቀማመጥ ተቆልፏል።"</string>
 </resources>

@@ -48,7 +48,7 @@
     <string name="status_bar_settings_notifications" msgid="397146176280905137">"การแจ้งเตือน"</string>
     <string name="bluetooth_tethered" msgid="7094101612161133267">"บลูทูธที่ปล่อยสัญญาณ"</string>
     <string name="status_bar_input_method_settings_configure_input_methods" msgid="3504292471512317827">"ตั้งค่าวิธีการป้อนข้อมูล"</string>
-    <string name="status_bar_use_physical_keyboard" msgid="3695516942412442936">"ใช้แป้นพิมพ์จริง"</string>
+    <string name="status_bar_use_physical_keyboard" msgid="7551903084416057810">"แป้นพิมพ์บนเครื่อง"</string>
     <string name="usb_device_permission_prompt" msgid="834698001271562057">"อนุญาตให้แอปพลิเคชัน <xliff:g id="APPLICATION">%1$s</xliff:g> เข้าถึงอุปกรณ์ USB นี้หรือไม่"</string>
     <string name="usb_accessory_permission_prompt" msgid="5171775411178865750">"อนุญาตให้แอปพลิเคชัน <xliff:g id="APPLICATION">%1$s</xliff:g> เข้าถึงอุปกรณ์เสริม USB นี้หรือไม่"</string>
     <string name="usb_device_confirm_prompt" msgid="5161205258635253206">"เปิด <xliff:g id="ACTIVITY">%1$s</xliff:g> เมื่อมีการเชื่อมต่ออุปกรณ์ USB นี้หรือไม่"</string>
@@ -138,4 +138,11 @@
     <string name="gps_notification_searching_text" msgid="8574247005642736060">"กำลังค้นหา GPS"</string>
     <string name="gps_notification_found_text" msgid="4619274244146446464">"ตำแหน่งที่กำหนดโดย GPS"</string>
     <string name="accessibility_clear_all" msgid="5235938559247164925">"ล้างการแจ้งเตือนทั้งหมด"</string>
+    <string name="dreams_dock_launcher" msgid="3541196417659166245">"เปิดโปรแกรมรักษาหน้าจอ"</string>
+    <string name="status_bar_notification_inspect_item_title" msgid="1163547729015390250">"ข้อมูลแอป"</string>
+    <string name="notifications_off_title" msgid="8936620513608443224">"การแจ้งเตือนปิดอยู่"</string>
+    <string name="notifications_off_text" msgid="2529001315769385273">"แตะที่นี่เพื่อเปิดการแจ้งเตือนอีกครั้ง"</string>
+    <string name="accessibility_rotation_lock_off" msgid="4062780228931590069">"หน้าจอจะหมุนโดยอัตโนมัติ"</string>
+    <string name="accessibility_rotation_lock_on_landscape" msgid="6731197337665366273">"ขณะนี้หน้าจอถูกล็อกให้วางในแนวนอน"</string>
+    <string name="accessibility_rotation_lock_on_portrait" msgid="5809367521644012115">"ขณะนี้หน้าจอถูกล็อกให้วางในแนวตั้ง"</string>
 </resources>

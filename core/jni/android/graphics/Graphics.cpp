@@ -40,7 +40,7 @@ void doThrowIOE(JNIEnv* env, const char* msg) {
 
 bool GraphicsJNI::hasException(JNIEnv *env) {
     if (env->ExceptionCheck() != 0) {
-        LOGE("*** Uncaught exception returned from Java call!\n");
+        ALOGE("*** Uncaught exception returned from Java call!\n");
         env->ExceptionDescribe();
         return true;
     }
@@ -345,14 +345,14 @@ SkRegion* GraphicsJNI::getNativeRegion(JNIEnv* env, jobject region)
 ///////////////////////////////////////////////////////////////////////////////////////////
 
 jobject GraphicsJNI::createBitmap(JNIEnv* env, SkBitmap* bitmap, jbyteArray buffer,
-                                  bool isMutable, jbyteArray ninepatch, int density)
+                                  bool isMutable, jbyteArray ninepatch, jintArray layoutbounds,
+                                  int density)
 {
     SkASSERT(bitmap);
     SkASSERT(bitmap->pixelRef());
-
     jobject obj = env->NewObject(gBitmap_class, gBitmap_constructorMethodID,
             static_cast<jint>(reinterpret_cast<uintptr_t>(bitmap)),
-            buffer, isMutable, ninepatch, density);
+            buffer, isMutable, ninepatch, layoutbounds, density);
     hasException(env); // For the side effect of logging.
     return obj;
 }
@@ -360,7 +360,7 @@ jobject GraphicsJNI::createBitmap(JNIEnv* env, SkBitmap* bitmap, jbyteArray buff
 jobject GraphicsJNI::createBitmap(JNIEnv* env, SkBitmap* bitmap, bool isMutable,
                             jbyteArray ninepatch, int density)
 {
-    return createBitmap(env, bitmap, NULL, isMutable, ninepatch, density);
+    return createBitmap(env, bitmap, NULL, isMutable, ninepatch, NULL, density);
 }
 
 
@@ -518,12 +518,6 @@ JavaPixelAllocator::JavaPixelAllocator(JNIEnv* env)
 bool JavaPixelAllocator::allocPixelRef(SkBitmap* bitmap, SkColorTable* ctable) {
     JNIEnv* env = vm2env(fVM);
 
-    // If allocating in the Java heap, only allow a single object to be
-    // allocated for the lifetime of this object.
-    if (fStorageObj != NULL) {
-        SkDebugf("WARNING: One-shot allocator has already allocated (alloc count = %d)\n", fAllocCount);
-//        sk_throw();
-    }
     fStorageObj = GraphicsJNI::allocateJavaPixelRef(env, bitmap, ctable);
     fAllocCount += 1;
     return fStorageObj != NULL;
@@ -593,7 +587,7 @@ int register_android_graphics_Graphics(JNIEnv* env)
     gBitmap_class = make_globalref(env, "android/graphics/Bitmap");
     gBitmap_nativeInstanceID = getFieldIDCheck(env, gBitmap_class, "mNativeBitmap", "I");
     gBitmap_constructorMethodID = env->GetMethodID(gBitmap_class, "<init>",
-                                            "(I[BZ[BI)V");
+                                            "(I[BZ[B[II)V");
     gBitmapRegionDecoder_class = make_globalref(env, "android/graphics/BitmapRegionDecoder");
     gBitmapRegionDecoder_constructorMethodID = env->GetMethodID(gBitmapRegionDecoder_class, "<init>", "(I)V");
 

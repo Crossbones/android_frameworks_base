@@ -20,8 +20,11 @@
 
 #include <android_runtime/AndroidRuntime.h>
 #include <utils/Log.h>
-#include <ui/Input.h>
+#include <androidfw/Input.h>
+#include <androidfw/VelocityTracker.h>
 #include "android_view_MotionEvent.h"
+
+#include <ScopedUtfChars.h>
 
 
 namespace android {
@@ -41,14 +44,13 @@ static struct {
 
 class VelocityTrackerState {
 public:
-    VelocityTrackerState();
+    VelocityTrackerState(const char* strategy);
 
     void clear();
     void addMovement(const MotionEvent* event);
     void computeCurrentVelocity(int32_t units, float maxVelocity);
     void getVelocity(int32_t id, float* outVx, float* outVy);
-    bool getEstimator(int32_t id, uint32_t degree, nsecs_t horizon,
-            VelocityTracker::Estimator* outEstimator);
+    bool getEstimator(int32_t id, VelocityTracker::Estimator* outEstimator);
 
 private:
     struct Velocity {
@@ -61,7 +63,8 @@ private:
     Velocity mCalculatedVelocity[MAX_POINTERS];
 };
 
-VelocityTrackerState::VelocityTrackerState() : mActivePointerId(-1) {
+VelocityTrackerState::VelocityTrackerState(const char* strategy) :
+        mVelocityTracker(strategy), mActivePointerId(-1) {
 }
 
 void VelocityTrackerState::clear() {
@@ -128,16 +131,20 @@ void VelocityTrackerState::getVelocity(int32_t id, float* outVx, float* outVy) {
     }
 }
 
-bool VelocityTrackerState::getEstimator(int32_t id, uint32_t degree, nsecs_t horizon,
-        VelocityTracker::Estimator* outEstimator) {
-    return mVelocityTracker.getEstimator(id, degree, horizon, outEstimator);
+bool VelocityTrackerState::getEstimator(int32_t id, VelocityTracker::Estimator* outEstimator) {
+    return mVelocityTracker.getEstimator(id, outEstimator);
 }
 
 
 // --- JNI Methods ---
 
-static jint android_view_VelocityTracker_nativeInitialize(JNIEnv* env, jclass clazz) {
-    return reinterpret_cast<jint>(new VelocityTrackerState());
+static jint android_view_VelocityTracker_nativeInitialize(JNIEnv* env, jclass clazz,
+        jstring strategyStr) {
+    if (strategyStr) {
+        ScopedUtfChars strategy(env, strategyStr);
+        return reinterpret_cast<jint>(new VelocityTrackerState(strategy.c_str()));
+    }
+    return reinterpret_cast<jint>(new VelocityTrackerState(NULL));
 }
 
 static void android_view_VelocityTracker_nativeDispose(JNIEnv* env, jclass clazz, jint ptr) {
@@ -154,7 +161,7 @@ static void android_view_VelocityTracker_nativeAddMovement(JNIEnv* env, jclass c
         jobject eventObj) {
     const MotionEvent* event = android_view_MotionEvent_getNativePtr(env, eventObj);
     if (!event) {
-        LOGW("nativeAddMovement failed because MotionEvent was finalized.");
+        ALOGW("nativeAddMovement failed because MotionEvent was finalized.");
         return;
     }
 
@@ -185,14 +192,10 @@ static jfloat android_view_VelocityTracker_nativeGetYVelocity(JNIEnv* env, jclas
 }
 
 static jboolean android_view_VelocityTracker_nativeGetEstimator(JNIEnv* env, jclass clazz,
-        jint ptr, jint id, jint degree, jint horizonMillis, jobject outEstimatorObj) {
+        jint ptr, jint id, jobject outEstimatorObj) {
     VelocityTrackerState* state = reinterpret_cast<VelocityTrackerState*>(ptr);
     VelocityTracker::Estimator estimator;
-    bool result = state->getEstimator(id,
-            degree < 0 ? VelocityTracker::DEFAULT_DEGREE : uint32_t(degree),
-            horizonMillis < 0 ? VelocityTracker::DEFAULT_HORIZON :
-                    nsecs_t(horizonMillis) * 1000000L,
-            &estimator);
+    bool result = state->getEstimator(id, &estimator);
 
     jfloatArray xCoeffObj = jfloatArray(env->GetObjectField(outEstimatorObj,
             gEstimatorClassInfo.xCoeff));
@@ -214,7 +217,7 @@ static jboolean android_view_VelocityTracker_nativeGetEstimator(JNIEnv* env, jcl
 static JNINativeMethod gVelocityTrackerMethods[] = {
     /* name, signature, funcPtr */
     { "nativeInitialize",
-            "()I",
+            "(Ljava/lang/String;)I",
             (void*)android_view_VelocityTracker_nativeInitialize },
     { "nativeDispose",
             "(I)V",
@@ -235,7 +238,7 @@ static JNINativeMethod gVelocityTrackerMethods[] = {
             "(II)F",
             (void*)android_view_VelocityTracker_nativeGetYVelocity },
     { "nativeGetEstimator",
-            "(IIIILandroid/view/VelocityTracker$Estimator;)Z",
+            "(IILandroid/view/VelocityTracker$Estimator;)Z",
             (void*)android_view_VelocityTracker_nativeGetEstimator },
 };
 

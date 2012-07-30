@@ -70,6 +70,12 @@ static const GLsizei gVertexAAWidthOffset = 2 * sizeof(float);
 static const GLsizei gVertexAALengthOffset = 3 * sizeof(float);
 static const GLsizei gMeshCount = 4;
 
+static const GLenum gTextureUnits[] = {
+    GL_TEXTURE0,
+    GL_TEXTURE1,
+    GL_TEXTURE2
+};
+
 ///////////////////////////////////////////////////////////////////////////////
 // Debug
 ///////////////////////////////////////////////////////////////////////////////
@@ -84,21 +90,14 @@ struct CacheLogger {
 // Caches
 ///////////////////////////////////////////////////////////////////////////////
 
+class DisplayList;
+
 class ANDROID_API Caches: public Singleton<Caches> {
     Caches();
 
     friend class Singleton<Caches>;
 
     CacheLogger mLogger;
-
-    GLuint mCurrentBuffer;
-
-    // Used to render layers
-    TextureVertex* mRegionMesh;
-    GLuint mRegionMeshIndices;
-
-    mutable Mutex mGarbageLock;
-    Vector<Layer*> mLayerGarbage;
 
 public:
     enum FlushMode {
@@ -108,7 +107,7 @@ public:
     };
 
     /**
-     * Initializes the cache.
+     * Initialize caches.
      */
     void init();
 
@@ -144,20 +143,66 @@ public:
      */
     void deleteLayerDeferred(Layer* layer);
 
+    /*
+     * Can be used to delete a display list from a non EGL thread.
+     */
+    void deleteDisplayListDeferred(DisplayList* layer);
+
     /**
      * Binds the VBO used to render simple textured quads.
      */
-    void bindMeshBuffer();
+    bool bindMeshBuffer();
 
     /**
      * Binds the specified VBO if needed.
      */
-    void bindMeshBuffer(const GLuint buffer);
+    bool bindMeshBuffer(const GLuint buffer);
 
     /**
      * Unbinds the VBO used to render simple textured quads.
      */
-    void unbindMeshBuffer();
+    bool unbindMeshBuffer();
+
+    bool bindIndicesBuffer(const GLuint buffer);
+    bool unbindIndicesBuffer();
+
+    /**
+     * Binds an attrib to the specified float vertex pointer.
+     * Assumes a stride of gMeshStride and a size of 2.
+     */
+    void bindPositionVertexPointer(bool force, GLuint slot, GLvoid* vertices,
+            GLsizei stride = gMeshStride);
+
+    /**
+     * Binds an attrib to the specified float vertex pointer.
+     * Assumes a stride of gMeshStride and a size of 2.
+     */
+    void bindTexCoordsVertexPointer(bool force, GLuint slot, GLvoid* vertices);
+
+    /**
+     * Resets the vertex pointers.
+     */
+    void resetVertexPointers();
+    void resetTexCoordsVertexPointer();
+
+    void enableTexCoordsVertexArray();
+    void disbaleTexCoordsVertexArray();
+
+    /**
+     * Activate the specified texture unit. The texture unit must
+     * be specified using an integer number (0 for GL_TEXTURE0 etc.)
+     */
+    void activeTexture(GLuint textureUnit);
+
+    /**
+     * Sets the scissor for the current surface.
+     */
+    void setScissor(GLint x, GLint y, GLint width, GLint height);
+
+    /**
+     * Resets the scissor state.
+     */
+    void resetScissor();
 
     /**
      * Returns the mesh used to draw regions. Calling this method will
@@ -202,7 +247,52 @@ public:
     GammaFontRenderer fontRenderer;
     ResourceCache resourceCache;
 
+    // Debug methods
+    PFNGLINSERTEVENTMARKEREXTPROC eventMark;
+    PFNGLPUSHGROUPMARKEREXTPROC startMark;
+    PFNGLPOPGROUPMARKEREXTPROC endMark;
+
+    PFNGLLABELOBJECTEXTPROC setLabel;
+    PFNGLGETOBJECTLABELEXTPROC getLabel;
+
 private:
+    void initExtensions();
+    void initConstraints();
+
+    static void eventMarkNull(GLsizei length, const GLchar* marker) { }
+    static void startMarkNull(GLsizei length, const GLchar* marker) { }
+    static void endMarkNull() { }
+
+    static void setLabelNull(GLenum type, uint object, GLsizei length,
+            const char* label) { }
+    static void getLabelNull(GLenum type, uint object, GLsizei bufferSize,
+            GLsizei* length, char* label) {
+        if (length) *length = 0;
+        if (label) *label = '\0';
+    }
+
+    GLuint mCurrentBuffer;
+    GLuint mCurrentIndicesBuffer;
+    void* mCurrentPositionPointer;
+    void* mCurrentTexCoordsPointer;
+
+    bool mTexCoordsArrayEnabled;
+
+    GLuint mTextureUnit;
+
+    GLint mScissorX;
+    GLint mScissorY;
+    GLint mScissorWidth;
+    GLint mScissorHeight;
+
+    // Used to render layers
+    TextureVertex* mRegionMesh;
+    GLuint mRegionMeshIndices;
+
+    mutable Mutex mGarbageLock;
+    Vector<Layer*> mLayerGarbage;
+    Vector<DisplayList*> mDisplayListGarbage;
+
     DebugLevel mDebugLevel;
     bool mInitialized;
 }; // class Caches

@@ -41,14 +41,14 @@
     <string name="battery_low_why" msgid="7279169609518386372">"Battery use"</string>
     <string name="status_bar_settings_settings_button" msgid="3023889916699270224">"Settings"</string>
     <string name="status_bar_settings_wifi_button" msgid="1733928151698311923">"Wi-Fi"</string>
-    <string name="status_bar_settings_airplane" msgid="4879879698500955300">"Airplane mode"</string>
+    <string name="status_bar_settings_airplane" msgid="4879879698500955300">"Aeroplane mode"</string>
     <string name="status_bar_settings_auto_rotation" msgid="3790482541357798421">"Auto-rotate screen"</string>
     <string name="status_bar_settings_mute_label" msgid="554682549917429396">"MUTE"</string>
     <string name="status_bar_settings_auto_brightness_label" msgid="511453614962324674">"AUTO"</string>
     <string name="status_bar_settings_notifications" msgid="397146176280905137">"Notifications"</string>
     <string name="bluetooth_tethered" msgid="7094101612161133267">"Bluetooth tethered"</string>
     <string name="status_bar_input_method_settings_configure_input_methods" msgid="3504292471512317827">"Set up input methods"</string>
-    <string name="status_bar_use_physical_keyboard" msgid="3695516942412442936">"Use physical keyboard"</string>
+    <string name="status_bar_use_physical_keyboard" msgid="7551903084416057810">"Physical keyboard"</string>
     <string name="usb_device_permission_prompt" msgid="834698001271562057">"Allow the app <xliff:g id="APPLICATION">%1$s</xliff:g> to access the USB device?"</string>
     <string name="usb_accessory_permission_prompt" msgid="5171775411178865750">"Allow the app <xliff:g id="APPLICATION">%1$s</xliff:g> to access the USB accessory?"</string>
     <string name="usb_device_confirm_prompt" msgid="5161205258635253206">"Open <xliff:g id="ACTIVITY">%1$s</xliff:g> when this USB device is connected?"</string>
@@ -116,7 +116,7 @@
     <string name="accessibility_data_connection_wifi" msgid="2324496756590645221">"Wi-Fi"</string>
     <string name="accessibility_no_sim" msgid="8274017118472455155">"No SIM."</string>
     <string name="accessibility_bluetooth_tether" msgid="4102784498140271969">"Bluetooth tethering"</string>
-    <string name="accessibility_airplane_mode" msgid="834748999790763092">"Airplane mode"</string>
+    <string name="accessibility_airplane_mode" msgid="834748999790763092">"Aeroplane mode"</string>
     <string name="accessibility_battery_level" msgid="7451474187113371965">"Battery <xliff:g id="NUMBER">%d</xliff:g> per cent."</string>
     <string name="accessibility_settings_button" msgid="799583911231893380">"System settings"</string>
     <string name="accessibility_notifications_button" msgid="4498000369779421892">"Notifications."</string>
@@ -138,4 +138,11 @@
     <string name="gps_notification_searching_text" msgid="8574247005642736060">"Searching for GPS"</string>
     <string name="gps_notification_found_text" msgid="4619274244146446464">"Location set by GPS"</string>
     <string name="accessibility_clear_all" msgid="5235938559247164925">"Clear all notifications."</string>
+    <string name="dreams_dock_launcher" msgid="3541196417659166245">"Activate screen saver"</string>
+    <string name="status_bar_notification_inspect_item_title" msgid="1163547729015390250">"App info"</string>
+    <string name="notifications_off_title" msgid="8936620513608443224">"Notifications off"</string>
+    <string name="notifications_off_text" msgid="2529001315769385273">"Tap here to turn notifications back on."</string>
+    <string name="accessibility_rotation_lock_off" msgid="4062780228931590069">"Screen will rotate automatically."</string>
+    <string name="accessibility_rotation_lock_on_landscape" msgid="6731197337665366273">"Screen is locked in landscape orientation."</string>
+    <string name="accessibility_rotation_lock_on_portrait" msgid="5809367521644012115">"Screen is locked in portrait orientation."</string>
 </resources>

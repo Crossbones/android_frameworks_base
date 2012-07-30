@@ -18,7 +18,7 @@
 #define NinePatchPeeker_h
 
 #include "SkImageDecoder.h"
-#include <utils/ResourceTypes.h>
+#include <androidfw/ResourceTypes.h>
 
 using namespace android;
 
@@ -28,17 +28,17 @@ public:
     NinePatchPeeker(SkImageDecoder* host) {
         // the host lives longer than we do, so a raw ptr is safe
         fHost = host;
-        fPatchIsValid = false;
+        fPatch = NULL;
+        fLayoutBounds = NULL;
     }
 
     ~NinePatchPeeker() {
-        if (fPatchIsValid) {
-            free(fPatch);
-        }
+        free(fPatch);
+        delete fLayoutBounds;
     }
 
-    bool    fPatchIsValid;
     Res_png_9patch*  fPatch;
+    int    *fLayoutBounds;
 
     virtual bool peek(const char tag[], const void* data, size_t length);
 };

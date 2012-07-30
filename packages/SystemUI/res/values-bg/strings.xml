@@ -48,7 +48,7 @@
     <string name="status_bar_settings_notifications" msgid="397146176280905137">"Известия"</string>
     <string name="bluetooth_tethered" msgid="7094101612161133267">"Bluetooth има връзка с тетъринг"</string>
     <string name="status_bar_input_method_settings_configure_input_methods" msgid="3504292471512317827">"Методи на въвеждане: Настройка"</string>
-    <string name="status_bar_use_physical_keyboard" msgid="3695516942412442936">"Използване на физ. клав."</string>
+    <string name="status_bar_use_physical_keyboard" msgid="7551903084416057810">"Физическа клавиатура"</string>
     <string name="usb_device_permission_prompt" msgid="834698001271562057">"Да се разреши ли на приложението <xliff:g id="APPLICATION">%1$s</xliff:g> достъп до USB устройството?"</string>
     <string name="usb_accessory_permission_prompt" msgid="5171775411178865750">"Да се разреши ли на приложението <xliff:g id="APPLICATION">%1$s</xliff:g> достъп до аксесоара за USB?"</string>
     <string name="usb_device_confirm_prompt" msgid="5161205258635253206">"Да се отвори ли <xliff:g id="ACTIVITY">%1$s</xliff:g>, когато това USB устройство е свързано?"</string>
@@ -138,4 +138,11 @@
     <string name="gps_notification_searching_text" msgid="8574247005642736060">"Търси се GPS"</string>
     <string name="gps_notification_found_text" msgid="4619274244146446464">"Местоположението е зададено от GPS"</string>
     <string name="accessibility_clear_all" msgid="5235938559247164925">"Изчистване на всички известия."</string>
+    <string name="dreams_dock_launcher" msgid="3541196417659166245">"Активиране на скрийнсейвъра"</string>
+    <string name="status_bar_notification_inspect_item_title" msgid="1163547729015390250">"Информация за приложението"</string>
+    <string name="notifications_off_title" msgid="8936620513608443224">"Известията са изключени"</string>
+    <string name="notifications_off_text" msgid="2529001315769385273">"Докоснете тук, за да включите отново известията."</string>
+    <string name="accessibility_rotation_lock_off" msgid="4062780228931590069">"Екранът ще се завърта автоматично."</string>
+    <string name="accessibility_rotation_lock_on_landscape" msgid="6731197337665366273">"Екранът е заключен в хоризонтална ориентация."</string>
+    <string name="accessibility_rotation_lock_on_portrait" msgid="5809367521644012115">"Екранът е заключен във вертикална ориентация."</string>
 </resources>

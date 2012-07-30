@@ -36,7 +36,7 @@ option java_package com.android.server
 
 
 # ---------------------------
-# DeviceStorageMonitoryService.java
+# DeviceStorageMonitorService.java
 # ---------------------------
 # The disk space free on the /data partition, in bytes
 2744 free_storage_changed (data|2|2)
@@ -44,6 +44,8 @@ option java_package com.android.server
 2745 low_storage (data|2|2)
 # disk space free on the /data, /system, and /cache partitions in bytes
 2746 free_storage_left (data|2|2),(system|2|2),(cache|2|2)
+# file on cache partition was deleted
+2748 cache_file_deleted (path|3)
 
 
 # ---------------------------
@@ -132,15 +134,15 @@ option java_package com.android.server
 # ConnectivityService.java
 # ---------------------------
 # Connectivity state changed:
-# [31-13] Reserved for future use
-# [12- 9] Network subtype (for mobile network, as defined by TelephonyManager)
-# [ 8- 3] Detailed state ordinal (as defined by NetworkInfo.DetailedState)
-# [ 2- 0] Network type (as defined by ConnectivityManager)
+# [31-14] Reserved for future use
+# [13-10] Network subtype (for mobile network, as defined by TelephonyManager)
+# [ 9- 4] Detailed state ordinal (as defined by NetworkInfo.DetailedState)
+# [ 3- 0] Network type (as defined by ConnectivityManager)
 50020 connectivity_state_changed (custom|1|5)
 
 
 # ---------------------------
 # NetworkStatsService.java
 # ---------------------------
-51100 netstats_mobile_sample (dev_rx_bytes|2|2),(dev_tx_bytes|2|2),(dev_rx_pkts|2|1),(dev_tx_pkts|2|1),(xt_rx_bytes|2|2),(xt_tx_bytes|2|2),(xt_rx_pkts|2|1),(xt_tx_pkts|2|1),(uid_rx_bytes|2|2),(uid_tx_bytes|2|2),(uid_rx_pkts|2|1),(uid_tx_pkts|2|1),(trusted_time|2|3),(dev_history_start|2|3)
-51101 netstats_wifi_sample (dev_rx_bytes|2|2),(dev_tx_bytes|2|2),(dev_rx_pkts|2|1),(dev_tx_pkts|2|1),(xt_rx_bytes|2|2),(xt_tx_bytes|2|2),(xt_rx_pkts|2|1),(xt_tx_pkts|2|1),(uid_rx_bytes|2|2),(uid_tx_bytes|2|2),(uid_rx_pkts|2|1),(uid_tx_pkts|2|1),(trusted_time|2|3),(dev_history_start|2|3)
+51100 netstats_mobile_sample (dev_rx_bytes|2|2),(dev_tx_bytes|2|2),(dev_rx_pkts|2|1),(dev_tx_pkts|2|1),(xt_rx_bytes|2|2),(xt_tx_bytes|2|2),(xt_rx_pkts|2|1),(xt_tx_pkts|2|1),(uid_rx_bytes|2|2),(uid_tx_bytes|2|2),(uid_rx_pkts|2|1),(uid_tx_pkts|2|1),(trusted_time|2|3)
+51101 netstats_wifi_sample (dev_rx_bytes|2|2),(dev_tx_bytes|2|2),(dev_rx_pkts|2|1),(dev_tx_pkts|2|1),(xt_rx_bytes|2|2),(xt_tx_bytes|2|2),(xt_rx_pkts|2|1),(xt_tx_pkts|2|1),(uid_rx_bytes|2|2),(uid_tx_bytes|2|2),(uid_rx_pkts|2|1),(uid_tx_pkts|2|1),(trusted_time|2|3)

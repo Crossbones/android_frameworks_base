@@ -20,6 +20,7 @@ import android.content.ComponentName;
 import android.content.Intent;
 import android.appwidget.AppWidgetProviderInfo;
 import com.android.internal.appwidget.IAppWidgetHost;
+import android.os.Bundle;
 import android.os.IBinder;
 import android.widget.RemoteViews;
 
@@ -42,12 +43,18 @@ interface IAppWidgetService {
     // for AppWidgetManager
     //
     void updateAppWidgetIds(in int[] appWidgetIds, in RemoteViews views);
+    void updateAppWidgetOptions(int appWidgetId, in Bundle extras);
+    Bundle getAppWidgetOptions(int appWidgetId);
     void partiallyUpdateAppWidgetIds(in int[] appWidgetIds, in RemoteViews views);
     void updateAppWidgetProvider(in ComponentName provider, in RemoteViews views);
     void notifyAppWidgetViewDataChanged(in int[] appWidgetIds, int viewId);
     List<AppWidgetProviderInfo> getInstalledProviders();
     AppWidgetProviderInfo getAppWidgetInfo(int appWidgetId);
+    boolean hasBindAppWidgetPermission(in String packageName);
+    void setBindAppWidgetPermission(in String packageName, in boolean permission);
     void bindAppWidgetId(int appWidgetId, in ComponentName provider);
+    boolean bindAppWidgetIdIfAllowed(
+            in String packageName, int appWidgetId, in ComponentName provider);
     void bindRemoteViewsService(int appWidgetId, in Intent intent, in IBinder connection);
     void unbindRemoteViewsService(int appWidgetId, in Intent intent);
     int[] getAppWidgetIds(in ComponentName provider);

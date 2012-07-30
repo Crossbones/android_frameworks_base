@@ -26,7 +26,7 @@
 #include <utils/Vector.h>
 
 #include <gui/SurfaceTexture.h>
-#include <surfaceflinger/Surface.h>
+#include <gui/Surface.h>
 #include <camera/Camera.h>
 #include <binder/IMemory.h>
 
@@ -115,7 +115,7 @@ sp<Camera> get_native_camera(JNIEnv *env, jobject thiz, JNICameraContext** pCont
     if (context != NULL) {
         camera = context->getCamera();
     }
-    LOGV("get_native_camera: context=%p, camera=%p", context, camera.get());
+    ALOGV("get_native_camera: context=%p, camera=%p", context, camera.get());
     if (camera == 0) {
         jniThrowRuntimeException(env, "Method called after release()");
     }
@@ -142,7 +142,7 @@ JNICameraContext::JNICameraContext(JNIEnv* env, jobject weak_this, jclass clazz,
 
 void JNICameraContext::release()
 {
-    LOGV("release");
+    ALOGV("release");
     Mutex::Autolock _l(mLock);
     JNIEnv *env = AndroidRuntime::getJNIEnv();
 
@@ -168,12 +168,12 @@ void JNICameraContext::release()
 
 void JNICameraContext::notify(int32_t msgType, int32_t ext1, int32_t ext2)
 {
-    LOGV("notify");
+    ALOGV("notify");
 
     // VM pointer will be NULL if object is released
     Mutex::Autolock _l(mLock);
     if (mCameraJObjectWeak == NULL) {
-        LOGW("callback on dead camera object");
+        ALOGW("callback on dead camera object");
         return;
     }
     JNIEnv *env = AndroidRuntime::getJNIEnv();
@@ -198,7 +198,7 @@ jbyteArray JNICameraContext::getCallbackBuffer(
 
     // Vector access should be protected by lock in postData()
     if (!buffers->isEmpty()) {
-        LOGV("Using callback buffer from queue of length %d", buffers->size());
+        ALOGV("Using callback buffer from queue of length %d", buffers->size());
         jbyteArray globalBuffer = buffers->itemAt(0);
         buffers->removeAt(0);
 
@@ -208,7 +208,7 @@ jbyteArray JNICameraContext::getCallbackBuffer(
         if (obj != NULL) {
             jsize bufferLength = env->GetArrayLength(obj);
             if ((int)bufferLength < (int)bufferSize) {
-                LOGE("Callback buffer was too small! Expected %d bytes, but got %d bytes!",
+                ALOGE("Callback buffer was too small! Expected %d bytes, but got %d bytes!",
                     bufferSize, bufferLength);
                 env->DeleteLocalRef(obj);
                 return NULL;
@@ -228,7 +228,7 @@ void JNICameraContext::copyAndPost(JNIEnv* env, const sp<IMemory>& dataPtr, int 
         ssize_t offset;
         size_t size;
         sp<IMemoryHeap> heap = dataPtr->getMemory(&offset, &size);
-        LOGV("copyAndPost: off=%ld, size=%d", offset, size);
+        ALOGV("copyAndPost: off=%ld, size=%d", offset, size);
         uint8_t *heapBase = (uint8_t*)heap->base();
 
         if (heapBase != NULL) {
@@ -240,7 +240,7 @@ void JNICameraContext::copyAndPost(JNIEnv* env, const sp<IMemory>& dataPtr, int 
                 obj = getCallbackBuffer(env, &mCallbackBuffers, size);
 
                 if (mCallbackBuffers.isEmpty()) {
-                    LOGV("Out of buffers, clearing callback!");
+                    ALOGV("Out of buffers, clearing callback!");
                     mCamera->setPreviewCallbackFlags(CAMERA_FRAME_CALLBACK_FLAG_NOOP);
                     mManualCameraCallbackSet = false;
 
@@ -249,18 +249,18 @@ void JNICameraContext::copyAndPost(JNIEnv* env, const sp<IMemory>& dataPtr, int 
                     }
                 }
             } else {
-                LOGV("Allocating callback buffer");
+                ALOGV("Allocating callback buffer");
                 obj = env->NewByteArray(size);
             }
 
             if (obj == NULL) {
-                LOGE("Couldn't allocate byte array for JPEG data");
+                ALOGE("Couldn't allocate byte array for JPEG data");
                 env->ExceptionClear();
             } else {
                 env->SetByteArrayRegion(obj, 0, size, data);
             }
         } else {
-            LOGE("image heap is NULL");
+            ALOGE("image heap is NULL");
         }
     }
 
@@ -279,7 +279,7 @@ void JNICameraContext::postData(int32_t msgType, const sp<IMemory>& dataPtr,
     Mutex::Autolock _l(mLock);
     JNIEnv *env = AndroidRuntime::getJNIEnv();
     if (mCameraJObjectWeak == NULL) {
-        LOGW("callback on dead camera object");
+        ALOGW("callback on dead camera object");
         return;
     }
 
@@ -294,7 +294,7 @@ void JNICameraContext::postData(int32_t msgType, const sp<IMemory>& dataPtr,
         // For backward-compatibility purpose, if there is no callback
         // buffer for raw image, the callback returns null.
         case CAMERA_MSG_RAW_IMAGE:
-            LOGV("rawCallback");
+            ALOGV("rawCallback");
             if (mRawImageCallbackBuffers.isEmpty()) {
                 env->CallStaticVoidMethod(mCameraJClass, fields.post_event,
                         mCameraJObjectWeak, dataMsgType, 0, 0, NULL);
@@ -308,7 +308,7 @@ void JNICameraContext::postData(int32_t msgType, const sp<IMemory>& dataPtr,
             break;
 
         default:
-            LOGV("dataCallback(%d, %p)", dataMsgType, dataPtr.get());
+            ALOGV("dataCallback(%d, %p)", dataMsgType, dataPtr.get());
             copyAndPost(env, dataPtr, dataMsgType);
             break;
     }
@@ -331,7 +331,7 @@ void JNICameraContext::postMetadata(JNIEnv *env, int32_t msgType, camera_frame_m
     obj = (jobjectArray) env->NewObjectArray(metadata->number_of_faces,
                                              mFaceClass, NULL);
     if (obj == NULL) {
-        LOGE("Couldn't allocate face metadata array");
+        ALOGE("Couldn't allocate face metadata array");
         return;
     }
 
@@ -386,7 +386,7 @@ void JNICameraContext::setCallbackMode(JNIEnv *env, bool installed, bool manualM
 void JNICameraContext::addCallbackBuffer(
         JNIEnv *env, jbyteArray cbb, int msgType)
 {
-    LOGV("addCallbackBuffer: 0x%x", msgType);
+    ALOGV("addCallbackBuffer: 0x%x", msgType);
     if (cbb != NULL) {
         Mutex::Autolock _l(mLock);
         switch (msgType) {
@@ -394,7 +394,7 @@ void JNICameraContext::addCallbackBuffer(
                 jbyteArray callbackBuffer = (jbyteArray)env->NewGlobalRef(cbb);
                 mCallbackBuffers.push(callbackBuffer);
 
-                LOGV("Adding callback buffer to queue, %d total",
+                ALOGV("Adding callback buffer to queue, %d total",
                         mCallbackBuffers.size());
 
                 // We want to make sure the camera knows we're ready for the
@@ -419,7 +419,7 @@ void JNICameraContext::addCallbackBuffer(
             }
         }
     } else {
-       LOGE("Null byte array!");
+       ALOGE("Null byte array!");
     }
 }
 
@@ -430,7 +430,7 @@ void JNICameraContext::clearCallbackBuffers_l(JNIEnv *env)
 }
 
 void JNICameraContext::clearCallbackBuffers_l(JNIEnv *env, Vector<jbyteArray> *buffers) {
-    LOGV("Clearing callback buffers, %d remained", buffers->size());
+    ALOGV("Clearing callback buffers, %d remained", buffers->size());
     while (!buffers->isEmpty()) {
         env->DeleteGlobalRef(buffers->top());
         buffers->pop();
@@ -494,8 +494,8 @@ static void android_hardware_Camera_native_setup(JNIEnv *env, jobject thiz,
 // finalizer is invoked later.
 static void android_hardware_Camera_release(JNIEnv *env, jobject thiz)
 {
-    // TODO: Change to LOGV
-    LOGV("release camera");
+    // TODO: Change to ALOGV
+    ALOGV("release camera");
     JNICameraContext* context = NULL;
     sp<Camera> camera;
     {
@@ -510,7 +510,7 @@ static void android_hardware_Camera_release(JNIEnv *env, jobject thiz)
     if (context != NULL) {
         camera = context->getCamera();
         context->release();
-        LOGV("native_release: context=%p camera=%p", context, camera.get());
+        ALOGV("native_release: context=%p camera=%p", context, camera.get());
 
         // clear callbacks
         if (camera != NULL) {
@@ -525,7 +525,7 @@ static void android_hardware_Camera_release(JNIEnv *env, jobject thiz)
 
 static void android_hardware_Camera_setPreviewDisplay(JNIEnv *env, jobject thiz, jobject jSurface)
 {
-    LOGV("setPreviewDisplay");
+    ALOGV("setPreviewDisplay");
     sp<Camera> camera = get_native_camera(env, thiz, NULL);
     if (camera == 0) return;
 
@@ -541,16 +541,26 @@ static void android_hardware_Camera_setPreviewDisplay(JNIEnv *env, jobject thiz,
 static void android_hardware_Camera_setPreviewTexture(JNIEnv *env,
         jobject thiz, jobject jSurfaceTexture)
 {
-    LOGV("setPreviewTexture");
+    ALOGV("setPreviewTexture");
     sp<Camera> camera = get_native_camera(env, thiz, NULL);
     if (camera == 0) return;
 
-    sp<SurfaceTexture> surfaceTexture = NULL;
+    sp<BufferQueue> bufferQueue = NULL;
     if (jSurfaceTexture != NULL) {
-        surfaceTexture = reinterpret_cast<SurfaceTexture*>(env->GetIntField(
+        sp<SurfaceTexture> surfaceTexture = reinterpret_cast<SurfaceTexture*>(env->GetIntField(
                 jSurfaceTexture, fields.surfaceTexture));
+        if (surfaceTexture != NULL) {
+            bufferQueue = surfaceTexture->getBufferQueue();
+        }
+        else {
+            jniThrowException(env, "java/lang/IllegalArgumentException",
+                    "SurfaceTexture already released in setPreviewTexture");
+            return;
+        }
+
     }
-    if (camera->setPreviewTexture(surfaceTexture) != NO_ERROR) {
+
+    if (camera->setPreviewTexture(bufferQueue) != NO_ERROR) {
         jniThrowException(env, "java/io/IOException",
                 "setPreviewTexture failed");
     }
@@ -558,7 +568,7 @@ static void android_hardware_Camera_setPreviewTexture(JNIEnv *env,
 
 static void android_hardware_Camera_startPreview(JNIEnv *env, jobject thiz)
 {
-    LOGV("startPreview");
+    ALOGV("startPreview");
     sp<Camera> camera = get_native_camera(env, thiz, NULL);
     if (camera == 0) return;
 
@@ -570,7 +580,7 @@ static void android_hardware_Camera_startPreview(JNIEnv *env, jobject thiz)
 
 static void android_hardware_Camera_stopPreview(JNIEnv *env, jobject thiz)
 {
-    LOGV("stopPreview");
+    ALOGV("stopPreview");
     sp<Camera> c = get_native_camera(env, thiz, NULL);
     if (c == 0) return;
 
@@ -579,7 +589,7 @@ static void android_hardware_Camera_stopPreview(JNIEnv *env, jobject thiz)
 
 static bool android_hardware_Camera_previewEnabled(JNIEnv *env, jobject thiz)
 {
-    LOGV("previewEnabled");
+    ALOGV("previewEnabled");
     sp<Camera> c = get_native_camera(env, thiz, NULL);
     if (c == 0) return false;
 
@@ -588,7 +598,7 @@ static bool android_hardware_Camera_previewEnabled(JNIEnv *env, jobject thiz)
 
 static void android_hardware_Camera_setHasPreviewCallback(JNIEnv *env, jobject thiz, jboolean installed, jboolean manualBuffer)
 {
-    LOGV("setHasPreviewCallback: installed:%d, manualBuffer:%d", (int)installed, (int)manualBuffer);
+    ALOGV("setHasPreviewCallback: installed:%d, manualBuffer:%d", (int)installed, (int)manualBuffer);
     // Important: Only install preview_callback if the Java code has called
     // setPreviewCallback() with a non-null value, otherwise we'd pay to memcpy
     // each preview frame for nothing.
@@ -602,7 +612,7 @@ static void android_hardware_Camera_setHasPreviewCallback(JNIEnv *env, jobject t
 }
 
 static void android_hardware_Camera_addCallbackBuffer(JNIEnv *env, jobject thiz, jbyteArray bytes, int msgType) {
-    LOGV("addCallbackBuffer: 0x%x", msgType);
+    ALOGV("addCallbackBuffer: 0x%x", msgType);
 
     JNICameraContext* context = reinterpret_cast<JNICameraContext*>(env->GetIntField(thiz, fields.context));
 
@@ -613,7 +623,7 @@ static void android_hardware_Camera_addCallbackBuffer(JNIEnv *env, jobject thiz,
 
 static void android_hardware_Camera_autoFocus(JNIEnv *env, jobject thiz)
 {
-    LOGV("autoFocus");
+    ALOGV("autoFocus");
     JNICameraContext* context;
     sp<Camera> c = get_native_camera(env, thiz, &context);
     if (c == 0) return;
@@ -625,7 +635,7 @@ static void android_hardware_Camera_autoFocus(JNIEnv *env, jobject thiz)
 
 static void android_hardware_Camera_cancelAutoFocus(JNIEnv *env, jobject thiz)
 {
-    LOGV("cancelAutoFocus");
+    ALOGV("cancelAutoFocus");
     JNICameraContext* context;
     sp<Camera> c = get_native_camera(env, thiz, &context);
     if (c == 0) return;
@@ -637,7 +647,7 @@ static void android_hardware_Camera_cancelAutoFocus(JNIEnv *env, jobject thiz)
 
 static void android_hardware_Camera_takePicture(JNIEnv *env, jobject thiz, int msgType)
 {
-    LOGV("takePicture");
+    ALOGV("takePicture");
     JNICameraContext* context;
     sp<Camera> camera = get_native_camera(env, thiz, &context);
     if (camera == 0) return;
@@ -652,9 +662,9 @@ static void android_hardware_Camera_takePicture(JNIEnv *env, jobject thiz, int m
      * Java application.
      */
     if (msgType & CAMERA_MSG_RAW_IMAGE) {
-        LOGV("Enable raw image callback buffer");
+        ALOGV("Enable raw image callback buffer");
         if (!context->isRawImageCallbackBufferAvailable()) {
-            LOGV("Enable raw image notification, since no callback buffer exists");
+            ALOGV("Enable raw image notification, since no callback buffer exists");
             msgType &= ~CAMERA_MSG_RAW_IMAGE;
             msgType |= CAMERA_MSG_RAW_IMAGE_NOTIFY;
         }
@@ -668,7 +678,7 @@ static void android_hardware_Camera_takePicture(JNIEnv *env, jobject thiz, int m
 
 static void android_hardware_Camera_setParameters(JNIEnv *env, jobject thiz, jstring params)
 {
-    LOGV("setParameters");
+    ALOGV("setParameters");
     sp<Camera> camera = get_native_camera(env, thiz, NULL);
     if (camera == 0) return;
 
@@ -686,16 +696,21 @@ static void android_hardware_Camera_setParameters(JNIEnv *env, jobject thiz, jst
 
 static jstring android_hardware_Camera_getParameters(JNIEnv *env, jobject thiz)
 {
-    LOGV("getParameters");
+    ALOGV("getParameters");
     sp<Camera> camera = get_native_camera(env, thiz, NULL);
     if (camera == 0) return 0;
 
-    return env->NewStringUTF(camera->getParameters().string());
+    String8 params8 = camera->getParameters();
+    if (params8.isEmpty()) {
+        jniThrowRuntimeException(env, "getParameters failed (empty parameters)");
+        return 0;
+    }
+    return env->NewStringUTF(params8.string());
 }
 
 static void android_hardware_Camera_reconnect(JNIEnv *env, jobject thiz)
 {
-    LOGV("reconnect");
+    ALOGV("reconnect");
     sp<Camera> camera = get_native_camera(env, thiz, NULL);
     if (camera == 0) return;
 
@@ -707,7 +722,7 @@ static void android_hardware_Camera_reconnect(JNIEnv *env, jobject thiz)
 
 static void android_hardware_Camera_lock(JNIEnv *env, jobject thiz)
 {
-    LOGV("lock");
+    ALOGV("lock");
     sp<Camera> camera = get_native_camera(env, thiz, NULL);
     if (camera == 0) return;
 
@@ -718,7 +733,7 @@ static void android_hardware_Camera_lock(JNIEnv *env, jobject thiz)
 
 static void android_hardware_Camera_unlock(JNIEnv *env, jobject thiz)
 {
-    LOGV("unlock");
+    ALOGV("unlock");
     sp<Camera> camera = get_native_camera(env, thiz, NULL);
     if (camera == 0) return;
 
@@ -729,7 +744,7 @@ static void android_hardware_Camera_unlock(JNIEnv *env, jobject thiz)
 
 static void android_hardware_Camera_startSmoothZoom(JNIEnv *env, jobject thiz, jint value)
 {
-    LOGV("startSmoothZoom");
+    ALOGV("startSmoothZoom");
     sp<Camera> camera = get_native_camera(env, thiz, NULL);
     if (camera == 0) return;
 
@@ -745,7 +760,7 @@ static void android_hardware_Camera_startSmoothZoom(JNIEnv *env, jobject thiz, j
 
 static void android_hardware_Camera_stopSmoothZoom(JNIEnv *env, jobject thiz)
 {
-    LOGV("stopSmoothZoom");
+    ALOGV("stopSmoothZoom");
     sp<Camera> camera = get_native_camera(env, thiz, NULL);
     if (camera == 0) return;
 
@@ -757,7 +772,7 @@ static void android_hardware_Camera_stopSmoothZoom(JNIEnv *env, jobject thiz)
 static void android_hardware_Camera_setDisplayOrientation(JNIEnv *env, jobject thiz,
         jint value)
 {
-    LOGV("setDisplayOrientation");
+    ALOGV("setDisplayOrientation");
     sp<Camera> camera = get_native_camera(env, thiz, NULL);
     if (camera == 0) return;
 
@@ -769,7 +784,7 @@ static void android_hardware_Camera_setDisplayOrientation(JNIEnv *env, jobject t
 static void android_hardware_Camera_startFaceDetection(JNIEnv *env, jobject thiz,
         jint type)
 {
-    LOGV("startFaceDetection");
+    ALOGV("startFaceDetection");
     JNICameraContext* context;
     sp<Camera> camera = get_native_camera(env, thiz, &context);
     if (camera == 0) return;
@@ -786,12 +801,23 @@ static void android_hardware_Camera_startFaceDetection(JNIEnv *env, jobject thiz
 
 static void android_hardware_Camera_stopFaceDetection(JNIEnv *env, jobject thiz)
 {
-    LOGV("stopFaceDetection");
+    ALOGV("stopFaceDetection");
     sp<Camera> camera = get_native_camera(env, thiz, NULL);
     if (camera == 0) return;
 
     if (camera->sendCommand(CAMERA_CMD_STOP_FACE_DETECTION, 0, 0) != NO_ERROR) {
         jniThrowRuntimeException(env, "stop face detection failed");
+    }
+}
+
+static void android_hardware_Camera_enableFocusMoveCallback(JNIEnv *env, jobject thiz, jint enable)
+{
+    ALOGV("enableFocusMoveCallback");
+    sp<Camera> camera = get_native_camera(env, thiz, NULL);
+    if (camera == 0) return;
+
+    if (camera->sendCommand(CAMERA_CMD_ENABLE_FOCUS_MOVE_MSG, enable, 0) != NO_ERROR) {
+        jniThrowRuntimeException(env, "enable focus move callback failed");
     }
 }
 
@@ -870,6 +896,9 @@ static JNINativeMethod camMethods[] = {
   { "_stopFaceDetection",
     "()V",
     (void *)android_hardware_Camera_stopFaceDetection},
+  { "enableFocusMoveCallback",
+    "(I)V",
+    (void *)android_hardware_Camera_enableFocusMoveCallback},
 };
 
 struct field {
@@ -885,13 +914,13 @@ static int find_fields(JNIEnv *env, field *fields, int count)
         field *f = &fields[i];
         jclass clazz = env->FindClass(f->class_name);
         if (clazz == NULL) {
-            LOGE("Can't find %s", f->class_name);
+            ALOGE("Can't find %s", f->class_name);
             return -1;
         }
 
         jfieldID field = env->GetFieldID(clazz, f->field_name, f->field_type);
         if (field == NULL) {
-            LOGE("Can't find %s.%s", f->class_name, f->field_name);
+            ALOGE("Can't find %s.%s", f->class_name, f->field_name);
             return -1;
         }
 
@@ -926,21 +955,21 @@ int register_android_hardware_Camera(JNIEnv *env)
     fields.post_event = env->GetStaticMethodID(clazz, "postEventFromNative",
                                                "(Ljava/lang/Object;IIILjava/lang/Object;)V");
     if (fields.post_event == NULL) {
-        LOGE("Can't find android/hardware/Camera.postEventFromNative");
+        ALOGE("Can't find android/hardware/Camera.postEventFromNative");
         return -1;
     }
 
     clazz = env->FindClass("android/graphics/Rect");
     fields.rect_constructor = env->GetMethodID(clazz, "<init>", "()V");
     if (fields.rect_constructor == NULL) {
-        LOGE("Can't find android/graphics/Rect.Rect()");
+        ALOGE("Can't find android/graphics/Rect.Rect()");
         return -1;
     }
 
     clazz = env->FindClass("android/hardware/Camera$Face");
     fields.face_constructor = env->GetMethodID(clazz, "<init>", "()V");
     if (fields.face_constructor == NULL) {
-        LOGE("Can't find android/hardware/Camera$Face.Face()");
+        ALOGE("Can't find android/hardware/Camera$Face.Face()");
         return -1;
     }
 

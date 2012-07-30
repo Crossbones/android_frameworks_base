@@ -26,7 +26,7 @@
     <string name="status_bar_recent_remove_item_title" msgid="6026395868129852968">"Hapus dari daftar"</string>
     <string name="status_bar_recent_inspect_item_title" msgid="7793624864528818569">"Info apl"</string>
     <string name="status_bar_no_recent_apps" msgid="6576392951053994640">"Tidak ada apl terbaru"</string>
-    <string name="status_bar_accessibility_dismiss_recents" msgid="4576076075226540105">"Singkirkan aplikasi terbaru"</string>
+    <string name="status_bar_accessibility_dismiss_recents" msgid="4576076075226540105">"Tutup aplikasi terbaru"</string>
   <plurals name="status_bar_accessibility_recent_apps">
     <item quantity="one" msgid="5854176083865845541">"1 apl terbaru"</item>
     <item quantity="other" msgid="1040784359794890744">"%d apl terbaru"</item>
@@ -48,7 +48,7 @@
     <string name="status_bar_settings_notifications" msgid="397146176280905137">"Pemberitahuan"</string>
     <string name="bluetooth_tethered" msgid="7094101612161133267">"Bluetooth tertambat"</string>
     <string name="status_bar_input_method_settings_configure_input_methods" msgid="3504292471512317827">"Menyiapkan metode masukan"</string>
-    <string name="status_bar_use_physical_keyboard" msgid="3695516942412442936">"Gunakan keyboard fisik"</string>
+    <string name="status_bar_use_physical_keyboard" msgid="7551903084416057810">"Keyboard fisik"</string>
     <string name="usb_device_permission_prompt" msgid="834698001271562057">"Izinkan apl <xliff:g id="APPLICATION">%1$s</xliff:g> mengakses perangkat USB?"</string>
     <string name="usb_accessory_permission_prompt" msgid="5171775411178865750">"Izinkan apl <xliff:g id="APPLICATION">%1$s</xliff:g> mengakses aksesori USB?"</string>
     <string name="usb_device_confirm_prompt" msgid="5161205258635253206">"Buka <xliff:g id="ACTIVITY">%1$s</xliff:g> ketika perangkat USB ini tersambung?"</string>
@@ -56,8 +56,8 @@
     <string name="usb_accessory_uri_prompt" msgid="513450621413733343">"Tidak ada apl terpasang yang bekerja dengan aksesori USB ini. Pelajari lebih lanjut tentang aksesori ini di <xliff:g id="URL">%1$s</xliff:g>"</string>
     <string name="title_usb_accessory" msgid="4966265263465181372">"Aksesori USB"</string>
     <string name="label_view" msgid="6304565553218192990">"Lihat"</string>
-    <string name="always_use_device" msgid="1450287437017315906">"Gunakan secara bawaan untuk perangkat USB ini"</string>
-    <string name="always_use_accessory" msgid="1210954576979621596">"Gunakan secara bawaan untuk aksesori USB ini"</string>
+    <string name="always_use_device" msgid="1450287437017315906">"Gunakan secara default untuk perangkat USB ini"</string>
+    <string name="always_use_accessory" msgid="1210954576979621596">"Gunakan secara default untuk aksesori USB ini"</string>
     <string name="compat_mode_on" msgid="6623839244840638213">"Perbesar utk mengisi layar"</string>
     <string name="compat_mode_off" msgid="4434467572461327898">"Rentangkn utk mngisi layar"</string>
     <string name="compat_mode_help_header" msgid="7969493989397529910">"Perbesar/perkecil untuk kompatibilitas"</string>
@@ -69,10 +69,10 @@
     <string name="screenshot_saved_text" msgid="1152839647677558815">"Sentuh untuk melihat tangkapan layar Anda."</string>
     <string name="screenshot_failed_title" msgid="705781116746922771">"Tidak dapat mengambil tangkapan layar."</string>
     <string name="screenshot_failed_text" msgid="8134011269572415402">"Tidak dapat menyimpan tangkapan layar. Penyimpanan mungkin sedang digunakan."</string>
-    <string name="usb_preference_title" msgid="6551050377388882787">"Opsi transfer berkas USB"</string>
+    <string name="usb_preference_title" msgid="6551050377388882787">"Opsi transfer file USB"</string>
     <string name="use_mtp_button_title" msgid="4333504413563023626">"Pasang sebagai pemutar media (MTP)"</string>
     <string name="use_ptp_button_title" msgid="7517127540301625751">"Pasang sebagai kamera (PTP)"</string>
-    <string name="installer_cd_button_title" msgid="2312667578562201583">"Pasang apl Transfer Berkas Android untuk Mac"</string>
+    <string name="installer_cd_button_title" msgid="2312667578562201583">"Pasang apl Transfer File Android untuk Mac"</string>
     <string name="accessibility_back" msgid="567011538994429120">"Kembali"</string>
     <string name="accessibility_home" msgid="8217216074895377641">"Utama"</string>
     <string name="accessibility_menu" msgid="316839303324695949">"Menu"</string>
@@ -138,4 +138,11 @@
     <string name="gps_notification_searching_text" msgid="8574247005642736060">"Menelusuri GPS"</string>
     <string name="gps_notification_found_text" msgid="4619274244146446464">"Lokasi yang disetel oleh GPS"</string>
     <string name="accessibility_clear_all" msgid="5235938559247164925">"Menghapus semua pemberitahuan."</string>
+    <string name="dreams_dock_launcher" msgid="3541196417659166245">"Aktifkan tirai layar"</string>
+    <string name="status_bar_notification_inspect_item_title" msgid="1163547729015390250">"Info aplikasi"</string>
+    <string name="notifications_off_title" msgid="8936620513608443224">"Pemberitahuan mati"</string>
+    <string name="notifications_off_text" msgid="2529001315769385273">"Ketuk di sini untuk menyalakan pemberitahuan lagi."</string>
+    <string name="accessibility_rotation_lock_off" msgid="4062780228931590069">"Layar akan diputar secara otomatis."</string>
+    <string name="accessibility_rotation_lock_on_landscape" msgid="6731197337665366273">"Layar dikunci dalam orientasi lanskap."</string>
+    <string name="accessibility_rotation_lock_on_portrait" msgid="5809367521644012115">"Layar dikunci dalam orientasi potret."</string>
 </resources>

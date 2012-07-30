@@ -32,17 +32,20 @@
     <uses-permission android:name="android.permission.READ_NETWORK_USAGE_HISTORY" />
     <uses-permission android:name="android.permission.MODIFY_NETWORK_ACCOUNTING" />
     <uses-permission android:name="android.permission.CONNECTIVITY_INTERNAL" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
 
     <application>
         <uses-library android:name="android.test.runner" />
 
-        <service android:name="com.android.server.AccessibilityManagerServiceTest$MyFirstMockAccessibilityService">
+        <service android:name="com.android.server.AccessibilityManagerServiceTest$MyFirstMockAccessibilityService"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
           <intent-filter>
             <action android:name="android.accessibilityservice.AccessibilityService"/>
           </intent-filter>
         </service>
 
-        <service android:name="com.android.server.AccessibilityManagerServiceTest$MySecondMockAccessibilityService">
+        <service android:name="com.android.server.AccessibilityManagerServiceTest$MySecondMockAccessibilityService"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
           <intent-filter>
             <action android:name="android.accessibilityservice.AccessibilityService"/>
           </intent-filter>

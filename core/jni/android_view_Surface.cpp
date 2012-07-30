@@ -22,11 +22,13 @@
 #include "android/graphics/GraphicsJNI.h"
 
 #include <binder/IMemory.h>
+
+#include <gui/Surface.h>
+#include <gui/SurfaceComposerClient.h>
 #include <gui/SurfaceTexture.h>
-#include <surfaceflinger/SurfaceComposerClient.h>
-#include <surfaceflinger/Surface.h>
-#include <ui/Region.h>
+
 #include <ui/Rect.h>
+#include <ui/Region.h>
 
 #include <EGL/egl.h>
 
@@ -196,7 +198,7 @@ sp<Surface> Surface_getSurface(JNIEnv* env, jobject clazz) {
     return surface;
 }
 
-static void setSurface(JNIEnv* env, jobject clazz, const sp<Surface>& surface)
+void setSurface(JNIEnv* env, jobject clazz, const sp<Surface>& surface)
 {
     Surface* const p = (Surface*)env->GetIntField(clazz, so.surface);
     if (surface.get()) {
@@ -249,8 +251,16 @@ static void Surface_init(
 static void Surface_initFromSurfaceTexture(
         JNIEnv* env, jobject clazz, jobject jst)
 {
-    sp<ISurfaceTexture> st(SurfaceTexture_getSurfaceTexture(env, jst));
-    sp<Surface> surface(new Surface(st));
+    sp<SurfaceTexture> st(SurfaceTexture_getSurfaceTexture(env, jst));
+
+    if (st == NULL) {
+        jniThrowException(env, "java/lang/IllegalArgumentException",
+                "SurfaceTexture has already been released");
+        return;
+    }
+    sp<ISurfaceTexture> bq = st->getBufferQueue();
+
+    sp<Surface> surface(new Surface(bq));
     if (surface == NULL) {
         jniThrowException(env, OutOfResourcesException, NULL);
         return;
@@ -304,6 +314,19 @@ static jboolean Surface_isValid(JNIEnv* env, jobject clazz)
     }
     const sp<Surface>& surface(getSurface(env, clazz));
     return Surface::isValid(surface) ? JNI_TRUE : JNI_FALSE;
+}
+
+static jboolean Surface_isConsumerRunningBehind(JNIEnv* env, jobject clazz)
+{
+    int value = 0;
+    const sp<Surface>& surface(getSurface(env, clazz));
+    if (!Surface::isValid(surface)) {
+        doThrowIAE(env);
+        return 0;
+    }
+    ANativeWindow* anw = static_cast<ANativeWindow *>(surface.get());
+    anw->query(anw, NATIVE_WINDOW_CONSUMER_RUNNING_BEHIND, &value);
+    return (jboolean)value;
 }
 
 static inline SkBitmap::Config convertPixelFormat(PixelFormat format)
@@ -572,7 +595,7 @@ static jobject Surface_screenshotAll(JNIEnv* env, jobject clazz, jint width, jin
 }
 
 static jobject Surface_screenshot(JNIEnv* env, jobject clazz, jint width, jint height,
-        jint minLayer, jint maxLayer, bool allLayers)
+        jint minLayer, jint maxLayer)
 {
     return doScreenshot(env, clazz, width, height, minLayer, maxLayer, false);
 }
@@ -724,6 +747,28 @@ static void Surface_setFreezeTint(
     }
 }
 
+static void Surface_setWindowCrop(JNIEnv* env, jobject thiz, jobject crop)
+{
+    const sp<SurfaceControl>& surface(getSurfaceControl(env, thiz));
+    if (surface == 0) return;
+
+    Rect nativeCrop;
+    if (crop) {
+        nativeCrop.left  = env->GetIntField(crop, ro.l);
+        nativeCrop.top   = env->GetIntField(crop, ro.t);
+        nativeCrop.right = env->GetIntField(crop, ro.r);
+        nativeCrop.bottom= env->GetIntField(crop, ro.b);
+    } else {
+        nativeCrop.left = nativeCrop.top = nativeCrop.right =
+                nativeCrop.bottom = 0;
+    }
+
+    status_t err = surface->setCrop(nativeCrop);
+    if (err<0 && err!=NO_INIT) {
+        doThrowIAE(env);
+    }
+}
+
 // ----------------------------------------------------------------------------
 
 static void Surface_copyFrom(
@@ -865,6 +910,8 @@ static JNINativeMethod gSurfaceMethods[] = {
     {"setFreezeTint",       "(I)V",  (void*)Surface_setFreezeTint },
     {"readFromParcel",      "(Landroid/os/Parcel;)V", (void*)Surface_readFromParcel },
     {"writeToParcel",       "(Landroid/os/Parcel;I)V", (void*)Surface_writeToParcel },
+    {"isConsumerRunningBehind", "()Z", (void*)Surface_isConsumerRunningBehind },
+    {"setWindowCrop",       "(Landroid/graphics/Rect;)V", (void*)Surface_setWindowCrop },
 };
 
 void nativeClassInit(JNIEnv* env, jclass clazz)
@@ -886,7 +933,7 @@ void nativeClassInit(JNIEnv* env, jclass clazz)
     no.native_region = env->GetFieldID(region, "mNativeRegion", "I");
 
     jclass parcel = env->FindClass("android/os/Parcel");
-    no.native_parcel = env->GetFieldID(parcel, "mObject", "I");
+    no.native_parcel = env->GetFieldID(parcel, "mNativePtr", "I");
 
     jclass rect = env->FindClass("android/graphics/Rect");
     ro.l = env->GetFieldID(rect, "left", "I");

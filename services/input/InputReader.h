@@ -21,7 +21,9 @@
 #include "PointerController.h"
 #include "InputListener.h"
 
-#include <ui/Input.h>
+#include <androidfw/Input.h>
+#include <androidfw/VelocityControl.h>
+#include <androidfw/VelocityTracker.h>
 #include <ui/DisplayInfo.h>
 #include <utils/KeyedVector.h>
 #include <utils/threads.h>
@@ -32,6 +34,14 @@
 
 #include <stddef.h>
 #include <unistd.h>
+
+// Maximum supported size of a vibration pattern.
+// Must be at least 2.
+#define MAX_VIBRATE_PATTERN_SIZE 100
+
+// Maximum allowable delay value in a vibration pattern before
+// which the delay will be truncated.
+#define MAX_VIBRATE_PATTERN_DELAY_NSECS (1000000 * 1000000000LL)
 
 namespace android {
 
@@ -58,6 +68,12 @@ struct InputReaderConfiguration {
 
         // The visible touches option changed.
         CHANGE_SHOW_TOUCHES = 1 << 3,
+
+        // The keyboard layouts must be reloaded.
+        CHANGE_KEYBOARD_LAYOUTS = 1 << 4,
+
+        // The device name alias supplied by the may have changed for some devices.
+        CHANGE_DEVICE_ALIAS = 1 << 5,
 
         // All devices must be reopened.
         CHANGE_MUST_REOPEN = 1 << 31,
@@ -209,6 +225,17 @@ public:
 
     /* Gets a pointer controller associated with the specified cursor device (ie. a mouse). */
     virtual sp<PointerControllerInterface> obtainPointerController(int32_t deviceId) = 0;
+
+    /* Notifies the input reader policy that some input devices have changed
+     * and provides information about all current input devices.
+     */
+    virtual void notifyInputDevicesChanged(const Vector<InputDeviceInfo>& inputDevices) = 0;
+
+    /* Gets the keyboard layout for a particular input device. */
+    virtual sp<KeyCharacterMap> getKeyboardLayoutOverlay(const String8& inputDeviceDescriptor) = 0;
+
+    /* Gets a user-supplied alias for a particular input device, or an empty string if none. */
+    virtual String8 getDeviceAlias(const InputDeviceIdentifier& identifier) = 0;
 };
 
 
@@ -234,22 +261,11 @@ public:
      */
     virtual void loopOnce() = 0;
 
-    /* Gets the current input device configuration.
+    /* Gets information about all input devices.
      *
      * This method may be called on any thread (usually by the input manager).
      */
-    virtual void getInputConfiguration(InputConfiguration* outConfiguration) = 0;
-
-    /* Gets information about the specified input device.
-     * Returns OK if the device information was obtained or NAME_NOT_FOUND if there
-     * was no such device.
-     *
-     * This method may be called on any thread (usually by the input manager).
-     */
-    virtual status_t getInputDeviceInfo(int32_t deviceId, InputDeviceInfo* outDeviceInfo) = 0;
-
-    /* Gets the list of all registered device ids. */
-    virtual void getInputDeviceIds(Vector<int32_t>& outDeviceIds) = 0;
+    virtual void getInputDevices(Vector<InputDeviceInfo>& outInputDevices) = 0;
 
     /* Query current input state. */
     virtual int32_t getScanCodeState(int32_t deviceId, uint32_t sourceMask,
@@ -267,6 +283,11 @@ public:
      * The changes flag is a bitfield that indicates what has changed and whether
      * the input devices must all be reopened. */
     virtual void requestRefreshConfiguration(uint32_t changes) = 0;
+
+    /* Controls the vibrator of a particular input device. */
+    virtual void vibrate(int32_t deviceId, const nsecs_t* pattern, size_t patternSize,
+            ssize_t repeat, int32_t token) = 0;
+    virtual void cancelVibrate(int32_t deviceId, int32_t token) = 0;
 };
 
 
@@ -288,6 +309,7 @@ public:
     virtual void fadePointer() = 0;
 
     virtual void requestTimeoutAtTime(nsecs_t when) = 0;
+    virtual int32_t bumpGeneration() = 0;
 
     virtual InputReaderPolicyInterface* getPolicy() = 0;
     virtual InputListenerInterface* getListener() = 0;
@@ -318,10 +340,7 @@ public:
 
     virtual void loopOnce();
 
-    virtual void getInputConfiguration(InputConfiguration* outConfiguration);
-
-    virtual status_t getInputDeviceInfo(int32_t deviceId, InputDeviceInfo* outDeviceInfo);
-    virtual void getInputDeviceIds(Vector<int32_t>& outDeviceIds);
+    virtual void getInputDevices(Vector<InputDeviceInfo>& outInputDevices);
 
     virtual int32_t getScanCodeState(int32_t deviceId, uint32_t sourceMask,
             int32_t scanCode);
@@ -335,10 +354,14 @@ public:
 
     virtual void requestRefreshConfiguration(uint32_t changes);
 
+    virtual void vibrate(int32_t deviceId, const nsecs_t* pattern, size_t patternSize,
+            ssize_t repeat, int32_t token);
+    virtual void cancelVibrate(int32_t deviceId, int32_t token);
+
 protected:
     // These members are protected so they can be instrumented by test cases.
     virtual InputDevice* createDeviceLocked(int32_t deviceId,
-            const String8& name, uint32_t classes);
+            const InputDeviceIdentifier& identifier, uint32_t classes);
 
     class ContextImpl : public InputReaderContext {
         InputReader* mReader;
@@ -353,6 +376,7 @@ protected:
                 InputDevice* device, int32_t keyCode, int32_t scanCode);
         virtual void fadePointer();
         virtual void requestTimeoutAtTime(nsecs_t when);
+        virtual int32_t bumpGeneration();
         virtual InputReaderPolicyInterface* getPolicy();
         virtual InputListenerInterface* getListener();
         virtual EventHubInterface* getEventHub();
@@ -362,6 +386,8 @@ protected:
 
 private:
     Mutex mLock;
+
+    Condition mReaderIsAliveCondition;
 
     sp<EventHubInterface> mEventHub;
     sp<InputReaderPolicyInterface> mPolicy;
@@ -391,8 +417,10 @@ private:
 
     void fadePointerLocked();
 
-    InputConfiguration mInputConfiguration;
-    void updateInputConfigurationLocked();
+    int32_t mGeneration;
+    int32_t bumpGenerationLocked();
+
+    void getInputDevicesLocked(Vector<InputDeviceInfo>& outInputDevices);
 
     nsecs_t mDisableVirtualKeysTimeout;
     void disableVirtualKeysUntilLocked(nsecs_t time);
@@ -430,12 +458,14 @@ private:
 /* Represents the state of a single input device. */
 class InputDevice {
 public:
-    InputDevice(InputReaderContext* context, int32_t id, const String8& name, uint32_t classes);
+    InputDevice(InputReaderContext* context, int32_t id, int32_t generation,
+            const InputDeviceIdentifier& identifier, uint32_t classes);
     ~InputDevice();
 
     inline InputReaderContext* getContext() { return mContext; }
     inline int32_t getId() { return mId; }
-    inline const String8& getName() { return mName; }
+    inline int32_t getGeneration() { return mGeneration; }
+    inline const String8& getName() { return mIdentifier.name; }
     inline uint32_t getClasses() { return mClasses; }
     inline uint32_t getSources() { return mSources; }
 
@@ -457,10 +487,14 @@ public:
     int32_t getSwitchState(uint32_t sourceMask, int32_t switchCode);
     bool markSupportedKeyCodes(uint32_t sourceMask, size_t numCodes,
             const int32_t* keyCodes, uint8_t* outFlags);
+    void vibrate(const nsecs_t* pattern, size_t patternSize, ssize_t repeat, int32_t token);
+    void cancelVibrate(int32_t token);
 
     int32_t getMetaState();
 
     void fadePointer();
+
+    void bumpGeneration();
 
     void notifyReset(nsecs_t when);
 
@@ -469,6 +503,12 @@ public:
 
     bool hasKey(int32_t code) {
         return getEventHub()->hasScanCode(mId, code);
+    }
+
+    bool hasAbsoluteAxis(int32_t code) {
+        RawAbsoluteAxisInfo info;
+        getEventHub()->getAbsoluteAxisInfo(mId, code, &info);
+        return info.valid;
     }
 
     bool isKeyPressed(int32_t code) {
@@ -484,7 +524,9 @@ public:
 private:
     InputReaderContext* mContext;
     int32_t mId;
-    String8 mName;
+    int32_t mGeneration;
+    InputDeviceIdentifier mIdentifier;
+    String8 mAlias;
     uint32_t mClasses;
 
     Vector<InputMapper*> mMappers;
@@ -590,9 +632,11 @@ public:
     int32_t getToolType() const;
     bool isToolActive() const;
     bool isHovering() const;
+    bool hasStylus() const;
 
 private:
     bool mHaveBtnTouch;
+    bool mHaveStylus;
 
     bool mBtnTouch;
     bool mBtnStylus;
@@ -780,10 +824,11 @@ public:
     MultiTouchMotionAccumulator();
     ~MultiTouchMotionAccumulator();
 
-    void configure(size_t slotCount, bool usingSlotsProtocol);
+    void configure(InputDevice* device, size_t slotCount, bool usingSlotsProtocol);
     void reset(InputDevice* device);
     void process(const RawEvent* rawEvent);
     void finishSync();
+    bool hasStylus() const;
 
     inline size_t getSlotCount() const { return mSlotCount; }
     inline const Slot* getSlot(size_t index) const { return &mSlots[index]; }
@@ -793,6 +838,7 @@ private:
     Slot* mSlots;
     size_t mSlotCount;
     bool mUsingSlotsProtocol;
+    bool mHaveStylus;
 
     void clearSlots(int32_t initialSlot);
 };
@@ -836,6 +882,9 @@ public:
     virtual int32_t getSwitchState(uint32_t sourceMask, int32_t switchCode);
     virtual bool markSupportedKeyCodes(uint32_t sourceMask, size_t numCodes,
             const int32_t* keyCodes, uint8_t* outFlags);
+    virtual void vibrate(const nsecs_t* pattern, size_t patternSize, ssize_t repeat,
+            int32_t token);
+    virtual void cancelVibrate(int32_t token);
 
     virtual int32_t getMetaState();
 
@@ -846,6 +895,7 @@ protected:
     InputReaderContext* mContext;
 
     status_t getAbsoluteAxisInfo(int32_t axis, RawAbsoluteAxisInfo* axisInfo);
+    void bumpGeneration();
 
     static void dumpRawAbsoluteAxisInfo(String8& dump,
             const RawAbsoluteAxisInfo& axis, const char* name);
@@ -864,6 +914,35 @@ public:
 
 private:
     void processSwitch(nsecs_t when, int32_t switchCode, int32_t switchValue);
+};
+
+
+class VibratorInputMapper : public InputMapper {
+public:
+    VibratorInputMapper(InputDevice* device);
+    virtual ~VibratorInputMapper();
+
+    virtual uint32_t getSources();
+    virtual void populateDeviceInfo(InputDeviceInfo* deviceInfo);
+    virtual void process(const RawEvent* rawEvent);
+
+    virtual void vibrate(const nsecs_t* pattern, size_t patternSize, ssize_t repeat,
+            int32_t token);
+    virtual void cancelVibrate(int32_t token);
+    virtual void timeoutExpired(nsecs_t when);
+    virtual void dump(String8& dump);
+
+private:
+    bool mVibrating;
+    nsecs_t mPattern[MAX_VIBRATE_PATTERN_SIZE];
+    size_t mPatternSize;
+    ssize_t mRepeat;
+    int32_t mToken;
+    ssize_t mIndex;
+    nsecs_t mNextStepTime;
+
+    void nextStep();
+    void stopVibrating();
 };
 
 
@@ -900,6 +979,8 @@ private:
     Vector<KeyDown> mKeyDowns; // keys that are down
     int32_t mMetaState;
     nsecs_t mDownTime; // time of most recent key down
+
+    int32_t mCurrentHidUsage; // most recent HID usage seen this packet, or 0 if none
 
     struct LedState {
         bool avail; // led is available
@@ -1185,6 +1266,7 @@ protected:
     virtual void parseCalibration();
     virtual void resolveCalibration();
     virtual void dumpCalibration(String8& dump);
+    virtual bool hasStylus() const = 0;
 
     virtual void syncTouch(nsecs_t when, bool* outHavePointerIds) = 0;
 
@@ -1533,6 +1615,7 @@ public:
 protected:
     virtual void syncTouch(nsecs_t when, bool* outHavePointerIds);
     virtual void configureRawPointerAxes();
+    virtual bool hasStylus() const;
 
 private:
     SingleTouchMotionAccumulator mSingleTouchMotionAccumulator;
@@ -1550,6 +1633,7 @@ public:
 protected:
     virtual void syncTouch(nsecs_t when, bool* outHavePointerIds);
     virtual void configureRawPointerAxes();
+    virtual bool hasStylus() const;
 
 private:
     MultiTouchMotionAccumulator mMultiTouchMotionAccumulator;

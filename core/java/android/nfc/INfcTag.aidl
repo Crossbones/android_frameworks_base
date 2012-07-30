@@ -29,12 +29,9 @@ interface INfcTag
     int connect(int nativeHandle, int technology);
     int reconnect(int nativeHandle);
     int[] getTechList(int nativeHandle);
-    byte[] getUid(int nativeHandle);
     boolean isNdef(int nativeHandle);
     boolean isPresent(int nativeHandle);
     TransceiveResult transceive(int nativeHandle, in byte[] data, boolean raw);
-
-    int getLastError(int nativeHandle);
 
     NdefMessage ndefRead(int nativeHandle);
     int ndefWrite(int nativeHandle, in NdefMessage msg);
@@ -48,4 +45,5 @@ interface INfcTag
     void resetTimeouts();
     boolean canMakeReadOnly(int ndefType);
     int getMaxTransceiveLength(int technology);
+    boolean getExtendedLengthApdusSupported();
 }

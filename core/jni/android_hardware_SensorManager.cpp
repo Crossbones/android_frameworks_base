@@ -69,7 +69,7 @@ sensors_module_get_next_sensor(JNIEnv *env, jobject clazz, jobject sensor, jint 
     jstring vendor = env->NewStringUTF(list->getVendor().string());
     env->SetObjectField(sensor, sensorOffsets.name,      name);
     env->SetObjectField(sensor, sensorOffsets.vendor,    vendor);
-    env->SetIntField(sensor, sensorOffsets.version,      1);
+    env->SetIntField(sensor, sensorOffsets.version,      list->getVersion());
     env->SetIntField(sensor, sensorOffsets.handle,       list->getHandle());
     env->SetIntField(sensor, sensorOffsets.type,         list->getType());
     env->SetFloatField(sensor, sensorOffsets.range,      list->getMaxValue());
@@ -126,14 +126,17 @@ sensors_data_poll(JNIEnv *env, jclass clazz, jint nativeQueue,
     ASensorEvent event;
 
     res = queue->read(&event, 1);
-    if (res == -EAGAIN) {
+    if (res == 0) {
         res = queue->waitForEvent();
         if (res != NO_ERROR)
             return -1;
+        // here we're guaranteed to have an event
         res = queue->read(&event, 1);
+        ALOGE_IF(res==0, "sensors_data_poll: nothing to read after waitForEvent()");
     }
-    if (res < 0)
+    if (res <= 0) {
         return -1;
+    }
 
     jint accuracy = event.vector.status;
     env->SetFloatArrayRegion(values, 0, 3, event.vector.v);
@@ -179,6 +182,6 @@ using namespace android;
 
 int register_android_hardware_SensorManager(JNIEnv *env)
 {
-    return jniRegisterNativeMethods(env, "android/hardware/SensorManager",
+    return jniRegisterNativeMethods(env, "android/hardware/SystemSensorManager",
             gMethods, NELEM(gMethods));
 }

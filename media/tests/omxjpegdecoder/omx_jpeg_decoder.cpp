@@ -25,7 +25,7 @@
 #include <binder/IServiceManager.h>
 #include <binder/ProcessState.h>
 #include <media/IMediaPlayerService.h>
-#include <media/stagefright/MediaDebug.h>
+#include <media/stagefright/foundation/ADebug.h>
 #include <media/stagefright/MediaSource.h>
 #include <media/stagefright/MetaData.h>
 #include <media/stagefright/OMXClient.h>
@@ -89,7 +89,7 @@ static int64_t getNowUs() {
 
 OmxJpegImageDecoder::OmxJpegImageDecoder() {
     status_t err = mClient.connect();
-    CHECK_EQ(err, OK);
+    CHECK_EQ(err, (status_t)OK);
 }
 
 OmxJpegImageDecoder::~OmxJpegImageDecoder() {
@@ -113,7 +113,7 @@ bool OmxJpegImageDecoder::onDecode(SkStream* stream,
 
     // mode == DecodePixels
     if (!this->allocPixelRef(bm, NULL)) {
-        LOGI("Cannot allocPixelRef()!");
+        ALOGI("Cannot allocPixelRef()!");
         return false;
     }
 
@@ -141,7 +141,7 @@ bool OmxJpegImageDecoder::decodeSource(sp<MediaSource> decoder,
         const sp<MediaSource>& source, SkBitmap* bm) {
     status_t rt = decoder->start();
     if (rt != OK) {
-        LOGE("Cannot start OMX Decoder!");
+        ALOGE("Cannot start OMX Decoder!");
         return false;
     }
     int64_t startTime = getNowUs();
@@ -152,7 +152,7 @@ bool OmxJpegImageDecoder::decodeSource(sp<MediaSource> decoder,
     int64_t duration = getNowUs() - startTime;
 
     if (err != OK) {
-        CHECK_EQ(buffer, NULL);
+        CHECK(buffer == NULL);
     }
     printf("Duration in decoder->read(): %.1f (msecs). \n",
                 duration / 1E3 );

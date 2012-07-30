@@ -17,8 +17,11 @@
 #define LOG_TAG "android.os.Debug"
 #include "JNIHelp.h"
 #include "jni.h"
+#include <utils/String8.h>
 #include "utils/misc.h"
+#include "cutils/debugger.h"
 
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -184,7 +187,7 @@ static void read_mapinfo(FILE *fp, stats_t* stats)
             }
         }
 
-        //LOGI("native=%d dalvik=%d sqlite=%d: %s\n", isNativeHeap, isDalvikHeap,
+        //ALOGI("native=%d dalvik=%d sqlite=%d: %s\n", isNativeHeap, isDalvikHeap,
         //    isSqliteHeap, line);
             
         while (true) {
@@ -517,26 +520,55 @@ static void android_os_Debug_dumpNativeHeap(JNIEnv* env, jobject clazz,
     /* dup() the descriptor so we don't close the original with fclose() */
     int fd = dup(origFd);
     if (fd < 0) {
-        LOGW("dup(%d) failed: %s\n", origFd, strerror(errno));
+        ALOGW("dup(%d) failed: %s\n", origFd, strerror(errno));
         jniThrowRuntimeException(env, "dup() failed");
         return;
     }
 
     FILE* fp = fdopen(fd, "w");
     if (fp == NULL) {
-        LOGW("fdopen(%d) failed: %s\n", fd, strerror(errno));
+        ALOGW("fdopen(%d) failed: %s\n", fd, strerror(errno));
         close(fd);
         jniThrowRuntimeException(env, "fdopen() failed");
         return;
     }
 
-    LOGD("Native heap dump starting...\n");
+    ALOGD("Native heap dump starting...\n");
     dumpNativeHeap(fp);
-    LOGD("Native heap dump complete.\n");
+    ALOGD("Native heap dump complete.\n");
 
     fclose(fp);
 }
 
+
+static void android_os_Debug_dumpNativeBacktraceToFile(JNIEnv* env, jobject clazz,
+    jint pid, jstring fileName)
+{
+    if (fileName == NULL) {
+        jniThrowNullPointerException(env, NULL);
+        return;
+    }
+    const jchar* str = env->GetStringCritical(fileName, 0);
+    String8 fileName8;
+    if (str) {
+        fileName8 = String8(str, env->GetStringLength(fileName));
+        env->ReleaseStringCritical(fileName, str);
+    }
+
+    int fd = open(fileName8.string(), O_CREAT | O_WRONLY | O_NOFOLLOW, 0666);  /* -rw-rw-rw- */
+    if (fd < 0) {
+        fprintf(stderr, "Can't open %s: %s\n", fileName8.string(), strerror(errno));
+        return;
+    }
+
+    if (lseek(fd, 0, SEEK_END) < 0) {
+        fprintf(stderr, "lseek: %s\n", strerror(errno));
+    } else {
+        dump_backtrace_to_file(pid, fd);
+    }
+
+    close(fd);
+}
 
 /*
  * JNI registration.
@@ -569,6 +601,8 @@ static JNINativeMethod gMethods[] = {
             (void*)android_os_Debug_getProxyObjectCount },
     { "getBinderDeathObjectCount", "()I",
             (void*)android_os_Debug_getDeathObjectCount },
+    { "dumpNativeBacktraceToFile", "(ILjava/lang/String;)V",
+            (void*)android_os_Debug_dumpNativeBacktraceToFile },
 };
 
 int register_android_os_Debug(JNIEnv *env)

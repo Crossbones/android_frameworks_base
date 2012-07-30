@@ -7,6 +7,7 @@
 #include "SkUnPreMultiply.h"
 
 #include <binder/Parcel.h>
+#include "android_os_Parcel.h"
 #include "android_util_Binder.h"
 #include "android_nio_utils.h"
 #include "CreateJavaOutputStreamAdaptor.h"
@@ -235,7 +236,7 @@ static jobject Bitmap_creator(JNIEnv* env, jobject, jintArray jColors,
                                0, 0, width, height, bitmap);
     }
 
-    return GraphicsJNI::createBitmap(env, new SkBitmap(bitmap), buff, isMutable, NULL);
+    return GraphicsJNI::createBitmap(env, new SkBitmap(bitmap), buff, isMutable, NULL, NULL);
 }
 
 static jobject Bitmap_copy(JNIEnv* env, jobject, const SkBitmap* src,
@@ -247,7 +248,7 @@ static jobject Bitmap_copy(JNIEnv* env, jobject, const SkBitmap* src,
         return NULL;
     }
 
-    return GraphicsJNI::createBitmap(env, new SkBitmap(result), allocator.getStorageObj(), isMutable, NULL);
+    return GraphicsJNI::createBitmap(env, new SkBitmap(result), allocator.getStorageObj(), isMutable, NULL, NULL);
 }
 
 static void Bitmap_destructor(JNIEnv* env, jobject, SkBitmap* bitmap) {
@@ -406,7 +407,7 @@ static jobject Bitmap_createFromParcel(JNIEnv* env, jobject, jobject parcel) {
     bitmap->unlockPixels();
 
     blob.release();
-    return GraphicsJNI::createBitmap(env, bitmap, buffer, isMutable, NULL, density);
+    return GraphicsJNI::createBitmap(env, bitmap, buffer, isMutable, NULL, NULL, density);
 }
 
 static jboolean Bitmap_writeToParcel(JNIEnv* env, jobject,
@@ -484,7 +485,7 @@ static jobject Bitmap_extractAlpha(JNIEnv* env, jobject clazz,
         env->ReleaseIntArrayElements(offsetXY, array, 0);
     }
 
-    return GraphicsJNI::createBitmap(env, dst, allocator.getStorageObj(), true, NULL);
+    return GraphicsJNI::createBitmap(env, dst, allocator.getStorageObj(), true, NULL, NULL);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

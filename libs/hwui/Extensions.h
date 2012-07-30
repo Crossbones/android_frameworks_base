@@ -34,13 +34,12 @@ namespace uirenderer {
 
 // Debug
 #if DEBUG_EXTENSIONS
-    #define EXT_LOGD(...) LOGD(__VA_ARGS__)
+    #define EXT_LOGD(...) ALOGD(__VA_ARGS__)
 #else
     #define EXT_LOGD(...)
 #endif
 
 // Vendor strings
-
 #define VENDOR_IMG "Imagination Technologies"
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -66,6 +65,9 @@ public:
 
         mHasNPot = hasExtension("GL_OES_texture_npot");
         mHasFramebufferFetch = hasExtension("GL_NV_shader_framebuffer_fetch");
+        mHasDiscardFramebuffer = hasExtension("GL_EXT_discard_framebuffer");
+        mHasDebugMarker = hasExtension("GL_EXT_debug_marker");
+        mHasDebugLabel = hasExtension("GL_EXT_debug_label");
 
         const char* vendor = (const char*) glGetString(GL_VENDOR);
         EXT_LOGD("Vendor: %s", vendor);
@@ -80,6 +82,9 @@ public:
     inline bool hasNPot() const { return mHasNPot; }
     inline bool hasFramebufferFetch() const { return mHasFramebufferFetch; }
     inline bool needsHighpTexCoords() const { return mNeedsHighpTexCoords; }
+    inline bool hasDiscardFramebuffer() const { return mHasDiscardFramebuffer; }
+    inline bool hasDebugMarker() const { return mHasDebugMarker; }
+    inline bool hasDebugLabel() const { return mHasDebugLabel; }
 
     bool hasExtension(const char* extension) const {
         const String8 s(extension);
@@ -87,7 +92,7 @@ public:
     }
 
     void dump() {
-        LOGD("Supported extensions:\n%s", mExtensions);
+        ALOGD("Supported extensions:\n%s", mExtensions);
     }
 
 private:
@@ -98,6 +103,9 @@ private:
     bool mHasNPot;
     bool mNeedsHighpTexCoords;
     bool mHasFramebufferFetch;
+    bool mHasDiscardFramebuffer;
+    bool mHasDebugMarker;
+    bool mHasDebugLabel;
 }; // class Extensions
 
 }; // namespace uirenderer

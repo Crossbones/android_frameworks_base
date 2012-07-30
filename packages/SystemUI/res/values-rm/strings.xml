@@ -66,7 +66,7 @@
     <skip />
     <!-- no translation found for status_bar_input_method_settings_configure_input_methods (3504292471512317827) -->
     <skip />
-    <!-- no translation found for status_bar_use_physical_keyboard (3695516942412442936) -->
+    <!-- no translation found for status_bar_use_physical_keyboard (7551903084416057810) -->
     <skip />
     <!-- no translation found for usb_device_permission_prompt (834698001271562057) -->
     <skip />
@@ -245,5 +245,19 @@
     <!-- no translation found for gps_notification_found_text (4619274244146446464) -->
     <skip />
     <!-- no translation found for accessibility_clear_all (5235938559247164925) -->
+    <skip />
+    <!-- no translation found for dreams_dock_launcher (3541196417659166245) -->
+    <skip />
+    <!-- no translation found for status_bar_notification_inspect_item_title (1163547729015390250) -->
+    <skip />
+    <!-- no translation found for notifications_off_title (8936620513608443224) -->
+    <skip />
+    <!-- no translation found for notifications_off_text (2529001315769385273) -->
+    <skip />
+    <!-- no translation found for accessibility_rotation_lock_off (4062780228931590069) -->
+    <skip />
+    <!-- no translation found for accessibility_rotation_lock_on_landscape (6731197337665366273) -->
+    <skip />
+    <!-- no translation found for accessibility_rotation_lock_on_portrait (5809367521644012115) -->
     <skip />
 </resources>

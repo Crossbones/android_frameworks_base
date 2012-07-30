@@ -29,6 +29,7 @@
 
 #include <utils/Functor.h>
 #include <utils/RefBase.h>
+#include <utils/SortedVector.h>
 #include <utils/Vector.h>
 
 #include <cutils/compiler.h>
@@ -62,17 +63,22 @@ public:
     ANDROID_API OpenGLRenderer();
     virtual ~OpenGLRenderer();
 
+    virtual bool isDeferred();
+
     virtual void setViewport(int width, int height);
 
-    ANDROID_API void prepare(bool opaque);
-    virtual void prepareDirty(float left, float top, float right, float bottom, bool opaque);
+    ANDROID_API int prepare(bool opaque);
+    virtual int prepareDirty(float left, float top, float right, float bottom, bool opaque);
     virtual void finish();
 
     // These two calls must not be recorded in display lists
     virtual void interrupt();
     virtual void resume();
 
-    virtual bool callDrawGLFunction(Functor *functor, Rect& dirty);
+    ANDROID_API status_t invokeFunctors(Rect& dirty);
+    ANDROID_API void detachFunctor(Functor* functor);
+    ANDROID_API void attachFunctor(Functor* functor);
+    virtual status_t callDrawGLFunction(Functor* functor, Rect& dirty);
 
     ANDROID_API int getSaveCount() const;
     virtual int save(int flags);
@@ -83,6 +89,10 @@ public:
             SkPaint* p, int flags);
     virtual int saveLayerAlpha(float left, float top, float right, float bottom,
             int alpha, int flags);
+
+    void setAlpha(float alpha) {
+        mSnapshot->alpha = alpha;
+    }
 
     virtual void translate(float dx, float dy);
     virtual void rotate(float degrees);
@@ -96,34 +106,40 @@ public:
     ANDROID_API const Rect& getClipBounds();
     ANDROID_API bool quickReject(float left, float top, float right, float bottom);
     virtual bool clipRect(float left, float top, float right, float bottom, SkRegion::Op op);
+    virtual Rect* getClipRect();
 
-    virtual bool drawDisplayList(DisplayList* displayList, uint32_t width, uint32_t height,
-            Rect& dirty, uint32_t level = 0);
+    virtual status_t drawDisplayList(DisplayList* displayList, Rect& dirty, int32_t flags,
+            uint32_t level = 0);
     virtual void outputDisplayList(DisplayList* displayList, uint32_t level = 0);
-    virtual void drawLayer(Layer* layer, float x, float y, SkPaint* paint);
-    virtual void drawBitmap(SkBitmap* bitmap, float left, float top, SkPaint* paint);
-    virtual void drawBitmap(SkBitmap* bitmap, SkMatrix* matrix, SkPaint* paint);
-    virtual void drawBitmap(SkBitmap* bitmap, float srcLeft, float srcTop,
+    virtual status_t drawLayer(Layer* layer, float x, float y, SkPaint* paint);
+    virtual status_t drawBitmap(SkBitmap* bitmap, float left, float top, SkPaint* paint);
+    virtual status_t drawBitmap(SkBitmap* bitmap, SkMatrix* matrix, SkPaint* paint);
+    virtual status_t drawBitmap(SkBitmap* bitmap, float srcLeft, float srcTop,
             float srcRight, float srcBottom, float dstLeft, float dstTop,
             float dstRight, float dstBottom, SkPaint* paint);
-    virtual void drawBitmapMesh(SkBitmap* bitmap, int meshWidth, int meshHeight,
+    virtual status_t drawBitmapData(SkBitmap* bitmap, float left, float top, SkPaint* paint);
+    virtual status_t drawBitmapMesh(SkBitmap* bitmap, int meshWidth, int meshHeight,
             float* vertices, int* colors, SkPaint* paint);
-    virtual void drawPatch(SkBitmap* bitmap, const int32_t* xDivs, const int32_t* yDivs,
+    virtual status_t drawPatch(SkBitmap* bitmap, const int32_t* xDivs, const int32_t* yDivs,
             const uint32_t* colors, uint32_t width, uint32_t height, int8_t numColors,
             float left, float top, float right, float bottom, SkPaint* paint);
-    virtual void drawColor(int color, SkXfermode::Mode mode);
-    virtual void drawRect(float left, float top, float right, float bottom, SkPaint* paint);
-    virtual void drawRoundRect(float left, float top, float right, float bottom,
+    virtual status_t drawColor(int color, SkXfermode::Mode mode);
+    virtual status_t drawRect(float left, float top, float right, float bottom, SkPaint* paint);
+    virtual status_t drawRoundRect(float left, float top, float right, float bottom,
             float rx, float ry, SkPaint* paint);
-    virtual void drawCircle(float x, float y, float radius, SkPaint* paint);
-    virtual void drawOval(float left, float top, float right, float bottom, SkPaint* paint);
-    virtual void drawArc(float left, float top, float right, float bottom,
+    virtual status_t drawCircle(float x, float y, float radius, SkPaint* paint);
+    virtual status_t drawOval(float left, float top, float right, float bottom, SkPaint* paint);
+    virtual status_t drawArc(float left, float top, float right, float bottom,
             float startAngle, float sweepAngle, bool useCenter, SkPaint* paint);
-    virtual void drawPath(SkPath* path, SkPaint* paint);
-    virtual void drawLines(float* points, int count, SkPaint* paint);
-    virtual void drawPoints(float* points, int count, SkPaint* paint);
-    virtual void drawText(const char* text, int bytesCount, int count, float x, float y,
-            SkPaint* paint);
+    virtual status_t drawPath(SkPath* path, SkPaint* paint);
+    virtual status_t drawLines(float* points, int count, SkPaint* paint);
+    virtual status_t drawPoints(float* points, int count, SkPaint* paint);
+    virtual status_t drawText(const char* text, int bytesCount, int count, float x, float y,
+            SkPaint* paint, float length = -1.0f);
+    virtual status_t drawTextOnPath(const char* text, int bytesCount, int count, SkPath* path,
+            float hOffset, float vOffset, SkPaint* paint);
+    virtual status_t drawPosText(const char* text, int bytesCount, int count,
+            const float* positions, SkPaint* paint);
 
     virtual void resetShader();
     virtual void setupShader(SkiaShader* shader);
@@ -133,6 +149,16 @@ public:
 
     virtual void resetShadow();
     virtual void setupShadow(float radius, float dx, float dy, int color);
+
+    virtual void resetPaintFilter();
+    virtual void setupPaintFilter(int clearBits, int setBits);
+
+    SkPaint* filterPaint(SkPaint* paint);
+
+    ANDROID_API static uint32_t getStencilSize();
+
+    void startMark(const char* name) const;
+    void endMark() const;
 
 protected:
     /**
@@ -188,6 +214,12 @@ protected:
     void drawTextureLayer(Layer* layer, const Rect& rect);
 
 private:
+    /**
+     * Ensures the state of the renderer is the same as the state of
+     * the GL context.
+     */
+    void syncState();
+
     /**
      * Saves the current state of the renderer as a new snapshot.
      * The new snapshot is saved in mSnapshot and the previous snapshot
@@ -304,7 +336,7 @@ private:
      * @param texture The texture reprsenting the shape
      * @param paint The paint to draw the shape with
      */
-    void drawShape(float left, float top, const PathTexture* texture, SkPaint* paint);
+    status_t drawShape(float left, float top, const PathTexture* texture, SkPaint* paint);
 
     /**
      * Renders the rect defined by the specified bounds as a shape.
@@ -317,7 +349,7 @@ private:
      * @param bottom The bottom coordinate of the rect to draw
      * @param p The paint to draw the rect with
      */
-    void drawRectAsShape(float left, float top, float right, float bottom, SkPaint* p);
+    status_t drawRectAsShape(float left, float top, float right, float bottom, SkPaint* p);
 
     /**
      * Draws the specified texture as an alpha bitmap. Alpha bitmaps obey
@@ -498,6 +530,7 @@ private:
      */
     void setupDrawWithTexture(bool isAlpha8 = false);
     void setupDrawWithExternalTexture();
+    void setupDrawNoTexture();
     void setupDrawAALine();
     void setupDrawPoint(float pointSize);
     void setupDrawColor(int color);
@@ -530,9 +563,11 @@ private:
     void setupDrawTextureTransform();
     void setupDrawTextureTransformUniforms(mat4& transform);
     void setupDrawMesh(GLvoid* vertices, GLvoid* texCoords = NULL, GLuint vbo = 0);
+    void setupDrawMeshIndices(GLvoid* vertices, GLvoid* texCoords);
     void setupDrawVertices(GLvoid* vertices);
     void setupDrawAALine(GLvoid* vertices, GLvoid* distanceCoords, GLvoid* lengthCoords,
-            float strokeWidth);
+            float strokeWidth, int& widthSlot, int& lengthSlot);
+    void finishDrawAALine(const int widthSlot, const int lengthSlot);
     void finishDrawTexture();
     void accountForClear(SkXfermode::Mode mode);
 
@@ -577,11 +612,19 @@ private:
     float mShadowDy;
     int mShadowColor;
 
+    // Draw filters
+    bool mHasDrawFilter;
+    int mPaintFilterClearBits;
+    int mPaintFilterSetBits;
+    SkPaint mFilteredPaint;
+
     // Various caches
     Caches& mCaches;
 
-    // List of rectagnles to clear after saveLayer() is invoked
+    // List of rectangles to clear after saveLayer() is invoked
     Vector<Rect*> mLayers;
+    // List of functors to invoke after a frame is drawn
+    SortedVector<Functor*> mFunctors;
 
     // Indentity matrix
     const mat4 mIdentity;
@@ -601,8 +644,6 @@ private:
     GLuint mTextureUnit;
     // Track dirty regions, true by default
     bool mTrackDirtyRegions;
-    // Texture coordinates slot
-    int mTexCoordsSlot;
 
     friend class DisplayListRenderer;
 

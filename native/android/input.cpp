@@ -18,8 +18,8 @@
 #include <utils/Log.h>
 
 #include <android/input.h>
-#include <ui/Input.h>
-#include <ui/InputTransport.h>
+#include <androidfw/Input.h>
+#include <androidfw/InputTransport.h>
 #include <utils/Looper.h>
 #include <utils/RefBase.h>
 #include <utils/Vector.h>
@@ -32,7 +32,6 @@
 using android::InputEvent;
 using android::KeyEvent;
 using android::MotionEvent;
-using android::InputDeviceInfo;
 using android::sp;
 using android::Vector;
 

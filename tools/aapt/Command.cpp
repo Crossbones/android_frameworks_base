@@ -345,6 +345,7 @@ enum {
     LABEL_ATTR = 0x01010001,
     ICON_ATTR = 0x01010002,
     NAME_ATTR = 0x01010003,
+    DEBUGGABLE_ATTR = 0x0101000f,
     VERSION_CODE_ATTR = 0x0101021b,
     VERSION_NAME_ATTR = 0x0101021c,
     SCREEN_ORIENTATION_ATTR = 0x0101001e,
@@ -425,6 +426,7 @@ static void printCompatibleScreens(ResXMLTree& tree) {
 /*
  * Handle the "dump" command, to extract select data from an archive.
  */
+extern char CONSOLE_DATA[2925]; // see EOF
 int doDump(Bundle* bundle)
 {
     status_t result = UNKNOWN_ERROR;
@@ -478,6 +480,11 @@ int doDump(Bundle* bundle)
 #ifndef HAVE_ANDROID_OS
         res.print(bundle->getValues());
 #endif
+
+    } else if (strcmp("strings", option) == 0) {
+        const ResStringPool* pool = res.getTableStringBlock(0);
+        printStringPool(pool);
+
     } else if (strcmp("xmltree", option) == 0) {
         if (bundle->getFileSpecCount() < 3) {
             fprintf(stderr, "ERROR: no dump xmltree resource file specified\n");
@@ -624,6 +631,20 @@ int doDump(Bundle* bundle)
             bool actWidgetReceivers = false;
             bool actImeService = false;
             bool actWallpaperService = false;
+
+            // These two implement the implicit permissions that are granted
+            // to pre-1.6 applications.
+            bool hasWriteExternalStoragePermission = false;
+            bool hasReadPhoneStatePermission = false;
+
+            // If an app requests write storage, they will also get read storage.
+            bool hasReadExternalStoragePermission = false;
+
+            // Implement transition to read and write call log.
+            bool hasReadContactsPermission = false;
+            bool hasWriteContactsPermission = false;
+            bool hasReadCallLogPermission = false;
+            bool hasWriteCallLogPermission = false;
 
             // This next group of variables is used to implement a group of
             // backward-compatibility heuristics necessitated by the addition of
@@ -810,6 +831,15 @@ int doDump(Bundle* bundle)
                         if (testOnly != 0) {
                             printf("testOnly='%d'\n", testOnly);
                         }
+
+                        int32_t debuggable = getResolvedIntegerAttribute(&res, tree, DEBUGGABLE_ATTR, &error, 0);
+                        if (error != "") {
+                            fprintf(stderr, "ERROR getting 'android:debuggable' attribute: %s\n", error.string());
+                            goto bail;
+                        }
+                        if (debuggable != 0) {
+                            printf("application-debuggable\n");
+                        }
                     } else if (tag == "uses-sdk") {
                         int32_t code = getIntegerAttribute(tree, MIN_SDK_VERSION_ATTR, &error);
                         if (error != "") {
@@ -986,6 +1016,20 @@ int doDump(Bundle* bundle)
                                        name == "android.permission.WRITE_APN_SETTINGS" ||
                                        name == "android.permission.WRITE_SMS") {
                                 hasTelephonyPermission = true;
+                            } else if (name == "android.permission.WRITE_EXTERNAL_STORAGE") {
+                                hasWriteExternalStoragePermission = true;
+                            } else if (name == "android.permission.READ_EXTERNAL_STORAGE") {
+                                hasReadExternalStoragePermission = true;
+                            } else if (name == "android.permission.READ_PHONE_STATE") {
+                                hasReadPhoneStatePermission = true;
+                            } else if (name == "android.permission.READ_CONTACTS") {
+                                hasReadContactsPermission = true;
+                            } else if (name == "android.permission.WRITE_CONTACTS") {
+                                hasWriteContactsPermission = true;
+                            } else if (name == "android.permission.READ_CALL_LOG") {
+                                hasReadCallLogPermission = true;
+                            } else if (name == "android.permission.WRITE_CALL_LOG") {
+                                hasWriteCallLogPermission = true;
                             }
                             printf("uses-permission:'%s'\n", name.string());
                         } else {
@@ -1144,6 +1188,45 @@ int doDump(Bundle* bundle)
                 }
             }
 
+            // Pre-1.6 implicitly granted permission compatibility logic
+            if (targetSdk < 4) {
+                if (!hasWriteExternalStoragePermission) {
+                    printf("uses-permission:'android.permission.WRITE_EXTERNAL_STORAGE'\n");
+                    printf("uses-implied-permission:'android.permission.WRITE_EXTERNAL_STORAGE'," \
+                            "'targetSdkVersion < 4'\n");
+                    hasWriteExternalStoragePermission = true;
+                }
+                if (!hasReadPhoneStatePermission) {
+                    printf("uses-permission:'android.permission.READ_PHONE_STATE'\n");
+                    printf("uses-implied-permission:'android.permission.READ_PHONE_STATE'," \
+                            "'targetSdkVersion < 4'\n");
+                }
+            }
+
+            // If the application has requested WRITE_EXTERNAL_STORAGE, we will
+            // force them to always take READ_EXTERNAL_STORAGE as well.  We always
+            // do this (regardless of target API version) because we can't have
+            // an app with write permission but not read permission.
+            if (!hasReadExternalStoragePermission && hasWriteExternalStoragePermission) {
+                printf("uses-permission:'android.permission.READ_EXTERNAL_STORAGE'\n");
+                printf("uses-implied-permission:'android.permission.READ_EXTERNAL_STORAGE'," \
+                        "'requested WRITE_EXTERNAL_STORAGE'\n");
+            }
+
+            // Pre-JellyBean call log permission compatibility.
+            if (targetSdk < 16) {
+                if (!hasReadCallLogPermission && hasReadContactsPermission) {
+                    printf("uses-permission:'android.permission.READ_CALL_LOG'\n");
+                    printf("uses-implied-permission:'android.permission.READ_CALL_LOG'," \
+                            "'targetSdkVersion < 16 and requested READ_CONTACTS'\n");
+                }
+                if (!hasWriteCallLogPermission && hasWriteContactsPermission) {
+                    printf("uses-permission:'android.permission.WRITE_CALL_LOG'\n");
+                    printf("uses-implied-permission:'android.permission.WRITE_CALL_LOG'," \
+                            "'targetSdkVersion < 16 and requested WRITE_CONTACTS'\n");
+                }
+            }
+
             /* The following blocks handle printing "inferred" uses-features, based
              * on whether related features or permissions are used by the app.
              * Note that the various spec*Feature variables denote whether the
@@ -1152,10 +1235,18 @@ int doDump(Bundle* bundle)
              */
             // Camera-related back-compatibility logic
             if (!specCameraFeature) {
-                if (reqCameraFlashFeature || reqCameraAutofocusFeature) {
+                if (reqCameraFlashFeature) {
                     // if app requested a sub-feature (autofocus or flash) and didn't
                     // request the base camera feature, we infer that it meant to
                     printf("uses-feature:'android.hardware.camera'\n");
+                    printf("uses-implied-feature:'android.hardware.camera'," \
+                            "'requested android.hardware.camera.flash feature'\n");
+                } else if (reqCameraAutofocusFeature) {
+                    // if app requested a sub-feature (autofocus or flash) and didn't
+                    // request the base camera feature, we infer that it meant to
+                    printf("uses-feature:'android.hardware.camera'\n");
+                    printf("uses-implied-feature:'android.hardware.camera'," \
+                            "'requested android.hardware.camera.autofocus feature'\n");
                 } else if (hasCameraPermission) {
                     // if app wants to use camera but didn't request the feature, we infer 
                     // that it meant to, and further that it wants autofocus
@@ -1163,6 +1254,8 @@ int doDump(Bundle* bundle)
                     printf("uses-feature:'android.hardware.camera'\n");
                     if (!specCameraAutofocusFeature) {
                         printf("uses-feature:'android.hardware.camera.autofocus'\n");
+                        printf("uses-implied-feature:'android.hardware.camera.autofocus'," \
+                                "'requested android.permission.CAMERA permission'\n");
                     }
                 }
             }
@@ -1174,16 +1267,22 @@ int doDump(Bundle* bundle)
                 // if app either takes a location-related permission or requests one of the
                 // sub-features, we infer that it also meant to request the base location feature
                 printf("uses-feature:'android.hardware.location'\n");
+                printf("uses-implied-feature:'android.hardware.location'," \
+                        "'requested a location access permission'\n");
             }
             if (!specGpsFeature && hasGpsPermission) {
                 // if app takes GPS (FINE location) perm but does not request the GPS
                 // feature, we infer that it meant to
                 printf("uses-feature:'android.hardware.location.gps'\n");
+                printf("uses-implied-feature:'android.hardware.location.gps'," \
+                        "'requested android.permission.ACCESS_FINE_LOCATION permission'\n");
             }
             if (!specNetworkLocFeature && hasCoarseLocPermission) {
                 // if app takes Network location (COARSE location) perm but does not request the
                 // network location feature, we infer that it meant to
                 printf("uses-feature:'android.hardware.location.network'\n");
+                printf("uses-implied-feature:'android.hardware.location.network'," \
+                        "'requested android.permission.ACCESS_COURSE_LOCATION permission'\n");
             }
 
             // Bluetooth-related compatibility logic
@@ -1191,6 +1290,9 @@ int doDump(Bundle* bundle)
                 // if app takes a Bluetooth permission but does not request the Bluetooth
                 // feature, we infer that it meant to
                 printf("uses-feature:'android.hardware.bluetooth'\n");
+                printf("uses-implied-feature:'android.hardware.bluetooth'," \
+                        "'requested android.permission.BLUETOOTH or android.permission.BLUETOOTH_ADMIN " \
+                        "permission and targetSdkVersion > 4'\n");
             }
 
             // Microphone-related compatibility logic
@@ -1198,6 +1300,8 @@ int doDump(Bundle* bundle)
                 // if app takes the record-audio permission but does not request the microphone
                 // feature, we infer that it meant to
                 printf("uses-feature:'android.hardware.microphone'\n");
+                printf("uses-implied-feature:'android.hardware.microphone'," \
+                        "'requested android.permission.RECORD_AUDIO permission'\n");
             }
 
             // WiFi-related compatibility logic
@@ -1205,6 +1309,10 @@ int doDump(Bundle* bundle)
                 // if app takes one of the WiFi permissions but does not request the WiFi
                 // feature, we infer that it meant to
                 printf("uses-feature:'android.hardware.wifi'\n");
+                printf("uses-implied-feature:'android.hardware.wifi'," \
+                        "'requested android.permission.ACCESS_WIFI_STATE, " \
+                        "android.permission.CHANGE_WIFI_STATE, or " \
+                        "android.permission.CHANGE_WIFI_MULTICAST_STATE permission'\n");
             }
 
             // Telephony-related compatibility logic
@@ -1212,6 +1320,8 @@ int doDump(Bundle* bundle)
                 // if app takes one of the telephony permissions or requests a sub-feature but
                 // does not request the base telephony feature, we infer that it meant to
                 printf("uses-feature:'android.hardware.telephony'\n");
+                printf("uses-implied-feature:'android.hardware.telephony'," \
+                        "'requested a telephony-related permission or feature'\n");
             }
 
             // Touchscreen-related back-compatibility logic
@@ -1221,11 +1331,15 @@ int doDump(Bundle* bundle)
                 // Note that specTouchscreenFeature is true if the tag is present, regardless
                 // of whether its value is true or false, so this is safe
                 printf("uses-feature:'android.hardware.touchscreen'\n");
+                printf("uses-implied-feature:'android.hardware.touchscreen'," \
+                        "'assumed you require a touch screen unless explicitly made optional'\n");
             }
             if (!specMultitouchFeature && reqDistinctMultitouchFeature) {
                 // if app takes one of the telephony permissions or requests a sub-feature but
                 // does not request the base telephony feature, we infer that it meant to
                 printf("uses-feature:'android.hardware.touchscreen.multitouch'\n");
+                printf("uses-implied-feature:'android.hardware.touchscreen.multitouch'," \
+                        "'requested android.hardware.touchscreen.multitouch.distinct feature'\n");
             }
 
             // Landscape/portrait-related compatibility logic
@@ -1235,9 +1349,13 @@ int doDump(Bundle* bundle)
                 // orientation is required.
                 if (reqScreenLandscapeFeature) {
                     printf("uses-feature:'android.hardware.screen.landscape'\n");
+                    printf("uses-implied-feature:'android.hardware.screen.landscape'," \
+                            "'one or more activities have specified a landscape orientation'\n");
                 }
                 if (reqScreenPortraitFeature) {
                     printf("uses-feature:'android.hardware.screen.portrait'\n");
+                    printf("uses-implied-feature:'android.hardware.screen.portrait'," \
+                            "'one or more activities have specified a portrait orientation'\n");
                 }
             }
 
@@ -1361,6 +1479,8 @@ int doDump(Bundle* bundle)
                 }
                 delete dir;
             }
+        } else if (strcmp("badger", option) == 0) {
+            printf("%s", CONSOLE_DATA);
         } else if (strcmp("configurations", option) == 0) {
             Vector<ResTable_config> configs;
             res.getConfigurations(&configs);
@@ -1590,6 +1710,12 @@ int doPackage(Bundle* bundle)
         goto bail;
     }
 
+    // Update symbols with information about which ones are needed as Java symbols.
+    assets->applyJavaSymbols();
+    if (SourcePos::hasErrors()) {
+        goto bail;
+    }
+
     // If we've been asked to generate a dependency file, do that here
     if (bundle->getGenDependencies()) {
         // If this is the packaging step, generate the dependency file next to
@@ -1611,31 +1737,34 @@ int doPackage(Bundle* bundle)
     }
 
     // Write out R.java constants
-    if (assets->getPackage() == assets->getSymbolsPrivatePackage()) {
+    if (!assets->havePrivateSymbols()) {
         if (bundle->getCustomPackage() == NULL) {
             // Write the R.java file into the appropriate class directory
             // e.g. gen/com/foo/app/R.java
             err = writeResourceSymbols(bundle, assets, assets->getPackage(), true);
-            // If we have library files, we're going to write our R.java file into
-            // the appropriate class directory for those libraries as well.
-            // e.g. gen/com/foo/app/lib/R.java
-            if (bundle->getExtraPackages() != NULL) {
-                // Split on colon
-                String8 libs(bundle->getExtraPackages());
-                char* packageString = strtok(libs.lockBuffer(libs.length()), ":");
-                while (packageString != NULL) {
-                    // Write the R.java file out with the correct package name
-                    err = writeResourceSymbols(bundle, assets, String8(packageString), true);
-                    packageString = strtok(NULL, ":");
-                }
-                libs.unlockBuffer();
-            }
         } else {
             const String8 customPkg(bundle->getCustomPackage());
             err = writeResourceSymbols(bundle, assets, customPkg, true);
         }
         if (err < 0) {
             goto bail;
+        }
+        // If we have library files, we're going to write our R.java file into
+        // the appropriate class directory for those libraries as well.
+        // e.g. gen/com/foo/app/lib/R.java
+        if (bundle->getExtraPackages() != NULL) {
+            // Split on colon
+            String8 libs(bundle->getExtraPackages());
+            char* packageString = strtok(libs.lockBuffer(libs.length()), ":");
+            while (packageString != NULL) {
+                // Write the R.java file out with the correct package name
+                err = writeResourceSymbols(bundle, assets, String8(packageString), true);
+                if (err < 0) {
+                    goto bail;
+                }
+                packageString = strtok(NULL, ":");
+            }
+            libs.unlockBuffer();
         }
     } else {
         err = writeResourceSymbols(bundle, assets, assets->getPackage(), false);
@@ -1709,3 +1838,169 @@ int doCrunch(Bundle* bundle)
 
     return NO_ERROR;
 }
+
+char CONSOLE_DATA[2925] = {
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 95, 46, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 10, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 61, 63,
+    86, 35, 40, 46, 46, 95, 95, 95, 95, 97, 97, 44, 32, 46, 124, 42, 33, 83,
+    62, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 10, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 58, 46, 58, 59, 61, 59, 61, 81,
+    81, 81, 81, 66, 96, 61, 61, 58, 46, 46, 46, 58, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 10, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 46, 61, 59, 59, 59, 58, 106, 81, 81, 81, 81, 102, 59, 61, 59,
+    59, 61, 61, 61, 58, 46, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 10, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 61, 59, 59,
+    59, 58, 109, 81, 81, 81, 81, 61, 59, 59, 59, 59, 59, 58, 59, 59, 46, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    10, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 46, 61, 59, 59, 59, 60, 81, 81, 81, 81, 87,
+    58, 59, 59, 59, 59, 59, 59, 61, 119, 44, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 10, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 46,
+    47, 61, 59, 59, 58, 100, 81, 81, 81, 81, 35, 58, 59, 59, 59, 59, 59, 58,
+    121, 81, 91, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 10, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 46, 109, 58, 59, 59, 61, 81, 81,
+    81, 81, 81, 109, 58, 59, 59, 59, 59, 61, 109, 81, 81, 76, 46, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 10, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 41, 87, 59, 61, 59, 41, 81, 81, 81, 81, 81, 81, 59, 61, 59,
+    59, 58, 109, 81, 81, 87, 39, 46, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 10, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 60, 81, 91, 59,
+    59, 61, 81, 81, 81, 81, 81, 87, 43, 59, 58, 59, 60, 81, 81, 81, 76, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 10, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 52, 91, 58, 45, 59, 87, 81, 81, 81, 81,
+    70, 58, 58, 58, 59, 106, 81, 81, 81, 91, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 10, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 93, 40, 32, 46, 59, 100, 81, 81, 81, 81, 40, 58, 46, 46, 58, 100, 81,
+    81, 68, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 10, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 46, 46, 46, 32, 46, 46, 46, 32, 46, 32, 46, 45, 91, 59, 61, 58, 109,
+    81, 81, 81, 87, 46, 58, 61, 59, 60, 81, 81, 80, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 10, 32,
+    32, 32, 32, 32, 32, 32, 32, 46, 46, 61, 59, 61, 61, 61, 59, 61, 61, 59,
+    59, 59, 58, 58, 46, 46, 41, 58, 59, 58, 81, 81, 81, 81, 69, 58, 59, 59,
+    60, 81, 81, 68, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 10, 32, 32, 32, 32, 32, 32, 58, 59,
+    61, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 61, 61, 46,
+    61, 59, 93, 81, 81, 81, 81, 107, 58, 59, 58, 109, 87, 68, 96, 32, 32, 32,
+    46, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 10, 32, 32, 32, 46, 60, 61, 61, 59, 59, 59, 59, 59, 59, 59, 59,
+    59, 59, 59, 59, 59, 59, 59, 59, 59, 58, 58, 58, 115, 109, 68, 41, 36, 81,
+    109, 46, 61, 61, 81, 69, 96, 46, 58, 58, 46, 58, 46, 46, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 10, 46, 32, 95, 81,
+    67, 61, 61, 58, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59,
+    59, 59, 59, 59, 58, 68, 39, 61, 105, 61, 63, 81, 119, 58, 106, 80, 32, 58,
+    61, 59, 59, 61, 59, 61, 59, 61, 46, 95, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 10, 32, 32, 36, 81, 109, 105, 59, 61, 59, 59, 59,
+    59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 46, 58, 37,
+    73, 108, 108, 62, 52, 81, 109, 34, 32, 61, 59, 59, 59, 59, 59, 59, 59, 59,
+    59, 61, 59, 61, 61, 46, 46, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 10,
+    32, 46, 45, 57, 101, 43, 43, 61, 61, 59, 59, 59, 59, 59, 59, 61, 59, 59,
+    59, 59, 59, 59, 59, 59, 59, 58, 97, 46, 61, 108, 62, 126, 58, 106, 80, 96,
+    46, 61, 61, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 61, 61,
+    97, 103, 97, 32, 32, 32, 32, 32, 32, 32, 10, 32, 32, 32, 32, 45, 46, 32,
+    46, 32, 32, 32, 32, 32, 32, 32, 32, 45, 45, 45, 58, 59, 59, 59, 59, 61,
+    119, 81, 97, 124, 105, 124, 124, 39, 126, 95, 119, 58, 61, 58, 59, 59, 59,
+    59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 61, 119, 81, 81, 99, 32, 32,
+    32, 32, 32, 32, 10, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 58, 59, 59, 58, 106, 81, 81, 81, 109, 119,
+    119, 119, 109, 109, 81, 81, 122, 58, 59, 59, 59, 59, 59, 59, 59, 59, 59,
+    59, 59, 59, 59, 59, 58, 115, 81, 87, 81, 102, 32, 32, 32, 32, 32, 32, 10,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 61, 58, 59, 61, 81, 81, 81, 81, 81, 81, 87, 87, 81, 81, 81, 81,
+    81, 58, 59, 59, 59, 59, 59, 59, 59, 59, 58, 45, 45, 45, 59, 59, 59, 41,
+    87, 66, 33, 32, 32, 32, 32, 32, 32, 32, 10, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 58, 59, 59, 93, 81,
+    81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 40, 58, 59, 59, 59, 58,
+    45, 32, 46, 32, 32, 32, 32, 32, 46, 32, 126, 96, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 10, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 58, 61, 59, 58, 81, 81, 81, 81, 81, 81, 81, 81,
+    81, 81, 81, 81, 81, 40, 58, 59, 59, 59, 58, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 10, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 58,
+    59, 59, 58, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 40, 58,
+    59, 59, 59, 46, 46, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 10, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 58, 61, 59, 60, 81, 81, 81, 81,
+    81, 81, 81, 81, 81, 81, 81, 81, 81, 59, 61, 59, 59, 61, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    10, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 58, 59, 59, 93, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81,
+    81, 81, 40, 59, 59, 59, 59, 32, 46, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 10, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 58, 61, 58, 106,
+    81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 76, 58, 59, 59, 59,
+    32, 46, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 10, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 61, 58, 58, 81, 81, 81, 81, 81, 81, 81, 81,
+    81, 81, 81, 81, 81, 87, 58, 59, 59, 59, 59, 32, 46, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 10, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    58, 59, 61, 41, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 87, 59,
+    61, 58, 59, 59, 46, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 10, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 58, 61, 58, 61, 81, 81, 81,
+    81, 81, 81, 81, 81, 81, 81, 81, 81, 107, 58, 59, 59, 59, 59, 58, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 10, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 58, 59, 59, 58, 51, 81, 81, 81, 81, 81, 81, 81, 81, 81,
+    81, 102, 94, 59, 59, 59, 59, 59, 61, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 10, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 58, 61, 59,
+    59, 59, 43, 63, 36, 81, 81, 81, 87, 64, 86, 102, 58, 59, 59, 59, 59, 59,
+    59, 59, 46, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 10, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 46, 61, 59, 59, 59, 59, 59, 59, 59, 43, 33,
+    58, 126, 126, 58, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 32, 46, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 10, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 46,
+    61, 59, 59, 59, 58, 45, 58, 61, 59, 58, 58, 58, 61, 59, 59, 59, 59, 59,
+    59, 59, 59, 59, 59, 59, 59, 58, 32, 46, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 10, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 46, 61, 59, 59, 59, 59, 59, 58, 95,
+    32, 45, 61, 59, 61, 59, 59, 59, 59, 59, 59, 59, 45, 58, 59, 59, 59, 59,
+    61, 58, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 10, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 58, 61, 59, 59, 59, 59, 59, 61, 59, 61, 46, 46, 32, 45, 45, 45,
+    59, 58, 45, 45, 46, 58, 59, 59, 59, 59, 59, 59, 61, 46, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 10, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 46, 58, 59, 59, 59, 59,
+    59, 59, 59, 59, 59, 61, 59, 46, 32, 32, 46, 32, 46, 32, 58, 61, 59, 59,
+    59, 59, 59, 59, 59, 59, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 10, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 45, 59, 59, 59, 59, 59, 59, 59, 59, 58, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 61, 59, 59, 59, 59, 59, 59, 59, 58, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 10,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    46, 61, 59, 59, 59, 59, 59, 59, 59, 32, 46, 32, 32, 32, 32, 32, 32, 61,
+    46, 61, 59, 59, 59, 59, 59, 59, 58, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 10, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 61, 59, 59, 59, 59, 59, 59,
+    59, 59, 32, 46, 32, 32, 32, 32, 32, 32, 32, 46, 61, 58, 59, 59, 59, 59,
+    59, 58, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 10, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 58, 59, 59, 59, 59, 59, 59, 59, 59, 46, 46, 32, 32, 32,
+    32, 32, 32, 32, 61, 59, 59, 59, 59, 59, 59, 59, 45, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 10, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 46, 32, 45, 61,
+    59, 59, 59, 59, 59, 58, 32, 46, 32, 32, 32, 32, 32, 32, 32, 58, 59, 59,
+    59, 59, 59, 58, 45, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 10, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 45, 45, 45, 45, 32, 46, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 45, 61, 59, 58, 45, 45, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    10, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 46, 32, 32, 46, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 10
+  };

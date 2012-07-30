@@ -36,10 +36,11 @@
 #include "utils/String8.h"
 #include "android_media_Utils.h"
 
+#include "android_os_Parcel.h"
 #include "android_util_Binder.h"
 #include <binder/Parcel.h>
 #include <gui/ISurfaceTexture.h>
-#include <surfaceflinger/Surface.h>
+#include <gui/Surface.h>
 #include <binder/IPCThreadState.h>
 #include <binder/IServiceManager.h>
 
@@ -71,6 +72,7 @@ private:
     JNIMediaPlayerListener();
     jclass      mClass;     // Reference to MediaPlayer class
     jobject     mObject;    // Weak ref to MediaPlayer Java object to call on
+    jobject     mParcel;
 };
 
 JNIMediaPlayerListener::JNIMediaPlayerListener(JNIEnv* env, jobject thiz, jobject weak_thiz)
@@ -80,7 +82,7 @@ JNIMediaPlayerListener::JNIMediaPlayerListener(JNIEnv* env, jobject thiz, jobjec
     // that posts events to the application thread.
     jclass clazz = env->GetObjectClass(thiz);
     if (clazz == NULL) {
-        LOGE("Can't find android/media/MediaPlayer");
+        ALOGE("Can't find android/media/MediaPlayer");
         jniThrowException(env, "java/lang/Exception", NULL);
         return;
     }
@@ -89,6 +91,7 @@ JNIMediaPlayerListener::JNIMediaPlayerListener(JNIEnv* env, jobject thiz, jobjec
     // We use a weak reference so the MediaPlayer object can be garbage collected.
     // The reference is only used as a proxy for callbacks.
     mObject  = env->NewGlobalRef(weak_thiz);
+    mParcel = env->NewGlobalRef(createJavaParcelObject(env));
 }
 
 JNIMediaPlayerListener::~JNIMediaPlayerListener()
@@ -97,24 +100,29 @@ JNIMediaPlayerListener::~JNIMediaPlayerListener()
     JNIEnv *env = AndroidRuntime::getJNIEnv();
     env->DeleteGlobalRef(mObject);
     env->DeleteGlobalRef(mClass);
+
+    recycleJavaParcelObject(env, mParcel);
+    env->DeleteGlobalRef(mParcel);
 }
 
 void JNIMediaPlayerListener::notify(int msg, int ext1, int ext2, const Parcel *obj)
 {
     JNIEnv *env = AndroidRuntime::getJNIEnv();
     if (obj && obj->dataSize() > 0) {
-        jbyteArray jArray = env->NewByteArray(obj->dataSize());
-        if (jArray != NULL) {
-            jbyte *nArray = env->GetByteArrayElements(jArray, NULL);
-            memcpy(nArray, obj->data(), obj->dataSize());
-            env->ReleaseByteArrayElements(jArray, nArray, 0);
+        if (mParcel != NULL) {
+            Parcel* nativeParcel = parcelForJavaObject(env, mParcel);
+            nativeParcel->setData(obj->data(), obj->dataSize());
             env->CallStaticVoidMethod(mClass, fields.post_event, mObject,
-                    msg, ext1, ext2, jArray);
-            env->DeleteLocalRef(jArray);
+                    msg, ext1, ext2, mParcel);
         }
     } else {
         env->CallStaticVoidMethod(mClass, fields.post_event, mObject,
                 msg, ext1, ext2, NULL);
+    }
+    if (env->ExceptionCheck()) {
+        ALOGW("An exception occurred while notifying an event.");
+        LOGW_EX(env);
+        env->ExceptionClear();
     }
 }
 
@@ -191,7 +199,7 @@ android_media_MediaPlayer_setDataSourceAndHeaders(
     if (tmp == NULL) {  // Out of memory
         return;
     }
-    LOGV("setDataSource: path %s", tmp);
+    ALOGV("setDataSource: path %s", tmp);
 
     String8 pathStr(tmp);
     env->ReleaseStringUTFChars(path, tmp);
@@ -215,12 +223,6 @@ android_media_MediaPlayer_setDataSourceAndHeaders(
 }
 
 static void
-android_media_MediaPlayer_setDataSource(JNIEnv *env, jobject thiz, jstring path)
-{
-    android_media_MediaPlayer_setDataSourceAndHeaders(env, thiz, path, NULL, NULL);
-}
-
-static void
 android_media_MediaPlayer_setDataSourceFD(JNIEnv *env, jobject thiz, jobject fileDescriptor, jlong offset, jlong length)
 {
     sp<MediaPlayer> mp = getMediaPlayer(env, thiz);
@@ -234,7 +236,7 @@ android_media_MediaPlayer_setDataSourceFD(JNIEnv *env, jobject thiz, jobject fil
         return;
     }
     int fd = jniGetFDFromFileDescriptor(env, fileDescriptor);
-    LOGV("setDataSourceFD: fd %d", fd);
+    ALOGV("setDataSourceFD: fd %d", fd);
     process_media_player_call( env, thiz, mp->setDataSource(fd, offset, length), "java/io/IOException", "setDataSourceFD failed." );
 }
 
@@ -336,7 +338,7 @@ android_media_MediaPlayer_prepareAsync(JNIEnv *env, jobject thiz)
 static void
 android_media_MediaPlayer_start(JNIEnv *env, jobject thiz)
 {
-    LOGV("start");
+    ALOGV("start");
     sp<MediaPlayer> mp = getMediaPlayer(env, thiz);
     if (mp == NULL ) {
         jniThrowException(env, "java/lang/IllegalStateException", NULL);
@@ -348,7 +350,7 @@ android_media_MediaPlayer_start(JNIEnv *env, jobject thiz)
 static void
 android_media_MediaPlayer_stop(JNIEnv *env, jobject thiz)
 {
-    LOGV("stop");
+    ALOGV("stop");
     sp<MediaPlayer> mp = getMediaPlayer(env, thiz);
     if (mp == NULL ) {
         jniThrowException(env, "java/lang/IllegalStateException", NULL);
@@ -360,7 +362,7 @@ android_media_MediaPlayer_stop(JNIEnv *env, jobject thiz)
 static void
 android_media_MediaPlayer_pause(JNIEnv *env, jobject thiz)
 {
-    LOGV("pause");
+    ALOGV("pause");
     sp<MediaPlayer> mp = getMediaPlayer(env, thiz);
     if (mp == NULL ) {
         jniThrowException(env, "java/lang/IllegalStateException", NULL);
@@ -379,7 +381,7 @@ android_media_MediaPlayer_isPlaying(JNIEnv *env, jobject thiz)
     }
     const jboolean is_playing = mp->isPlaying();
 
-    LOGV("isPlaying: %d", is_playing);
+    ALOGV("isPlaying: %d", is_playing);
     return is_playing;
 }
 
@@ -391,7 +393,7 @@ android_media_MediaPlayer_seekTo(JNIEnv *env, jobject thiz, int msec)
         jniThrowException(env, "java/lang/IllegalStateException", NULL);
         return;
     }
-    LOGV("seekTo: %d(msec)", msec);
+    ALOGV("seekTo: %d(msec)", msec);
     process_media_player_call( env, thiz, mp->seekTo(msec), NULL, NULL );
 }
 
@@ -405,10 +407,10 @@ android_media_MediaPlayer_getVideoWidth(JNIEnv *env, jobject thiz)
     }
     int w;
     if (0 != mp->getVideoWidth(&w)) {
-        LOGE("getVideoWidth failed");
+        ALOGE("getVideoWidth failed");
         w = 0;
     }
-    LOGV("getVideoWidth: %d", w);
+    ALOGV("getVideoWidth: %d", w);
     return w;
 }
 
@@ -422,10 +424,10 @@ android_media_MediaPlayer_getVideoHeight(JNIEnv *env, jobject thiz)
     }
     int h;
     if (0 != mp->getVideoHeight(&h)) {
-        LOGE("getVideoHeight failed");
+        ALOGE("getVideoHeight failed");
         h = 0;
     }
-    LOGV("getVideoHeight: %d", h);
+    ALOGV("getVideoHeight: %d", h);
     return h;
 }
 
@@ -440,7 +442,7 @@ android_media_MediaPlayer_getCurrentPosition(JNIEnv *env, jobject thiz)
     }
     int msec;
     process_media_player_call( env, thiz, mp->getCurrentPosition(&msec), NULL, NULL );
-    LOGV("getCurrentPosition: %d (msec)", msec);
+    ALOGV("getCurrentPosition: %d (msec)", msec);
     return msec;
 }
 
@@ -454,14 +456,14 @@ android_media_MediaPlayer_getDuration(JNIEnv *env, jobject thiz)
     }
     int msec;
     process_media_player_call( env, thiz, mp->getDuration(&msec), NULL, NULL );
-    LOGV("getDuration: %d (msec)", msec);
+    ALOGV("getDuration: %d (msec)", msec);
     return msec;
 }
 
 static void
 android_media_MediaPlayer_reset(JNIEnv *env, jobject thiz)
 {
-    LOGV("reset");
+    ALOGV("reset");
     sp<MediaPlayer> mp = getMediaPlayer(env, thiz);
     if (mp == NULL ) {
         jniThrowException(env, "java/lang/IllegalStateException", NULL);
@@ -473,19 +475,19 @@ android_media_MediaPlayer_reset(JNIEnv *env, jobject thiz)
 static void
 android_media_MediaPlayer_setAudioStreamType(JNIEnv *env, jobject thiz, int streamtype)
 {
-    LOGV("setAudioStreamType: %d", streamtype);
+    ALOGV("setAudioStreamType: %d", streamtype);
     sp<MediaPlayer> mp = getMediaPlayer(env, thiz);
     if (mp == NULL ) {
         jniThrowException(env, "java/lang/IllegalStateException", NULL);
         return;
     }
-    process_media_player_call( env, thiz, mp->setAudioStreamType(streamtype) , NULL, NULL );
+    process_media_player_call( env, thiz, mp->setAudioStreamType((audio_stream_type_t) streamtype) , NULL, NULL );
 }
 
 static void
 android_media_MediaPlayer_setLooping(JNIEnv *env, jobject thiz, jboolean looping)
 {
-    LOGV("setLooping: %d", looping);
+    ALOGV("setLooping: %d", looping);
     sp<MediaPlayer> mp = getMediaPlayer(env, thiz);
     if (mp == NULL ) {
         jniThrowException(env, "java/lang/IllegalStateException", NULL);
@@ -497,7 +499,7 @@ android_media_MediaPlayer_setLooping(JNIEnv *env, jobject thiz, jboolean looping
 static jboolean
 android_media_MediaPlayer_isLooping(JNIEnv *env, jobject thiz)
 {
-    LOGV("isLooping");
+    ALOGV("isLooping");
     sp<MediaPlayer> mp = getMediaPlayer(env, thiz);
     if (mp == NULL ) {
         jniThrowException(env, "java/lang/IllegalStateException", NULL);
@@ -509,7 +511,7 @@ android_media_MediaPlayer_isLooping(JNIEnv *env, jobject thiz)
 static void
 android_media_MediaPlayer_setVolume(JNIEnv *env, jobject thiz, float leftVolume, float rightVolume)
 {
-    LOGV("setVolume: left %f  right %f", leftVolume, rightVolume);
+    ALOGV("setVolume: left %f  right %f", leftVolume, rightVolume);
     sp<MediaPlayer> mp = getMediaPlayer(env, thiz);
     if (mp == NULL ) {
         jniThrowException(env, "java/lang/IllegalStateException", NULL);
@@ -537,7 +539,6 @@ android_media_MediaPlayer_invoke(JNIEnv *env, jobject thiz,
         jniThrowException(env, "java/lang/IllegalStateException", NULL);
         return UNKNOWN_ERROR;
     }
-
 
     Parcel *request = parcelForJavaObject(env, java_request);
     Parcel *reply = parcelForJavaObject(env, java_reply);
@@ -625,7 +626,7 @@ android_media_MediaPlayer_native_init(JNIEnv *env)
 static void
 android_media_MediaPlayer_native_setup(JNIEnv *env, jobject thiz, jobject weak_this)
 {
-    LOGV("native_setup");
+    ALOGV("native_setup");
     sp<MediaPlayer> mp = new MediaPlayer();
     if (mp == NULL) {
         jniThrowException(env, "java/lang/RuntimeException", "Out of memory");
@@ -643,7 +644,7 @@ android_media_MediaPlayer_native_setup(JNIEnv *env, jobject thiz, jobject weak_t
 static void
 android_media_MediaPlayer_release(JNIEnv *env, jobject thiz)
 {
-    LOGV("release");
+    ALOGV("release");
     decVideoSurfaceRef(env, thiz);
     sp<MediaPlayer> mp = setMediaPlayer(env, thiz, 0);
     if (mp != NULL) {
@@ -656,16 +657,16 @@ android_media_MediaPlayer_release(JNIEnv *env, jobject thiz)
 static void
 android_media_MediaPlayer_native_finalize(JNIEnv *env, jobject thiz)
 {
-    LOGV("native_finalize");
+    ALOGV("native_finalize");
     sp<MediaPlayer> mp = getMediaPlayer(env, thiz);
     if (mp != NULL) {
-        LOGW("MediaPlayer finalized without being released");
+        ALOGW("MediaPlayer finalized without being released");
     }
     android_media_MediaPlayer_release(env, thiz);
 }
 
 static void android_media_MediaPlayer_set_audio_session_id(JNIEnv *env,  jobject thiz, jint sessionId) {
-    LOGV("set_session_id(): %d", sessionId);
+    ALOGV("set_session_id(): %d", sessionId);
     sp<MediaPlayer> mp = getMediaPlayer(env, thiz);
     if (mp == NULL ) {
         jniThrowException(env, "java/lang/IllegalStateException", NULL);
@@ -675,7 +676,7 @@ static void android_media_MediaPlayer_set_audio_session_id(JNIEnv *env,  jobject
 }
 
 static jint android_media_MediaPlayer_get_audio_session_id(JNIEnv *env,  jobject thiz) {
-    LOGV("get_session_id()");
+    ALOGV("get_session_id()");
     sp<MediaPlayer> mp = getMediaPlayer(env, thiz);
     if (mp == NULL ) {
         jniThrowException(env, "java/lang/IllegalStateException", NULL);
@@ -688,7 +689,7 @@ static jint android_media_MediaPlayer_get_audio_session_id(JNIEnv *env,  jobject
 static void
 android_media_MediaPlayer_setAuxEffectSendLevel(JNIEnv *env, jobject thiz, jfloat level)
 {
-    LOGV("setAuxEffectSendLevel: level %f", level);
+    ALOGV("setAuxEffectSendLevel: level %f", level);
     sp<MediaPlayer> mp = getMediaPlayer(env, thiz);
     if (mp == NULL ) {
         jniThrowException(env, "java/lang/IllegalStateException", NULL);
@@ -698,7 +699,7 @@ android_media_MediaPlayer_setAuxEffectSendLevel(JNIEnv *env, jobject thiz, jfloa
 }
 
 static void android_media_MediaPlayer_attachAuxEffect(JNIEnv *env,  jobject thiz, jint effectId) {
-    LOGV("attachAuxEffect(): %d", effectId);
+    ALOGV("attachAuxEffect(): %d", effectId);
     sp<MediaPlayer> mp = getMediaPlayer(env, thiz);
     if (mp == NULL ) {
         jniThrowException(env, "java/lang/IllegalStateException", NULL);
@@ -722,10 +723,49 @@ android_media_MediaPlayer_pullBatteryData(JNIEnv *env, jobject thiz, jobject jav
     return service->pullBatteryData(reply);
 }
 
+static jint
+android_media_MediaPlayer_setRetransmitEndpoint(JNIEnv *env, jobject thiz,
+                                                jstring addrString, jint port) {
+    sp<MediaPlayer> mp = getMediaPlayer(env, thiz);
+    if (mp == NULL ) {
+        jniThrowException(env, "java/lang/IllegalStateException", NULL);
+        return INVALID_OPERATION;
+    }
+
+    const char *cAddrString = NULL;
+
+    if (NULL != addrString) {
+        cAddrString = env->GetStringUTFChars(addrString, NULL);
+        if (cAddrString == NULL) {  // Out of memory
+            return NO_MEMORY;
+        }
+    }
+    ALOGV("setRetransmitEndpoint: %s:%d",
+            cAddrString ? cAddrString : "(null)", port);
+
+    status_t ret;
+    if (cAddrString && (port > 0xFFFF)) {
+        ret = BAD_VALUE;
+    } else {
+        ret = mp->setRetransmitEndpoint(cAddrString,
+                static_cast<uint16_t>(port));
+    }
+
+    if (NULL != addrString) {
+        env->ReleaseStringUTFChars(addrString, cAddrString);
+    }
+
+    if (ret == INVALID_OPERATION ) {
+        jniThrowException(env, "java/lang/IllegalStateException", NULL);
+    }
+
+    return ret;
+}
+
 static jboolean
 android_media_MediaPlayer_setParameter(JNIEnv *env, jobject thiz, jint key, jobject java_request)
 {
-    LOGV("setParameter: key %d", key);
+    ALOGV("setParameter: key %d", key);
     sp<MediaPlayer> mp = getMediaPlayer(env, thiz);
     if (mp == NULL ) {
         jniThrowException(env, "java/lang/IllegalStateException", NULL);
@@ -744,7 +784,7 @@ android_media_MediaPlayer_setParameter(JNIEnv *env, jobject thiz, jint key, jobj
 static void
 android_media_MediaPlayer_getParameter(JNIEnv *env, jobject thiz, jint key, jobject java_reply)
 {
-    LOGV("getParameter: key %d", key);
+    ALOGV("getParameter: key %d", key);
     sp<MediaPlayer> mp = getMediaPlayer(env, thiz);
     if (mp == NULL ) {
         jniThrowException(env, "java/lang/IllegalStateException", NULL);
@@ -755,11 +795,36 @@ android_media_MediaPlayer_getParameter(JNIEnv *env, jobject thiz, jint key, jobj
     process_media_player_call(env, thiz, mp->getParameter(key, reply), NULL, NULL );
 }
 
+static void
+android_media_MediaPlayer_setNextMediaPlayer(JNIEnv *env, jobject thiz, jobject java_player)
+{
+    ALOGV("setNextMediaPlayer");
+    sp<MediaPlayer> thisplayer = getMediaPlayer(env, thiz);
+    if (thisplayer == NULL) {
+        jniThrowException(env, "java/lang/IllegalStateException", "This player not initialized");
+        return;
+    }
+    sp<MediaPlayer> nextplayer = (java_player == NULL) ? NULL : getMediaPlayer(env, java_player);
+    if (nextplayer == NULL && java_player != NULL) {
+        jniThrowException(env, "java/lang/IllegalStateException", "That player not initialized");
+        return;
+    }
+
+    if (nextplayer == thisplayer) {
+        jniThrowException(env, "java/lang/IllegalArgumentException", "Next player can't be self");
+        return;
+    }
+    // tie the two players together
+    process_media_player_call(
+            env, thiz, thisplayer->setNextMediaPlayer(nextplayer),
+            "java/lang/IllegalArgumentException",
+            "setNextMediaPlayer failed." );
+    ;
+}
+
 // ----------------------------------------------------------------------------
 
 static JNINativeMethod gMethods[] = {
-    {"setDataSource",       "(Ljava/lang/String;)V",            (void *)android_media_MediaPlayer_setDataSource},
-
     {
         "_setDataSource",
         "(Ljava/lang/String;[Ljava/lang/String;[Ljava/lang/String;)V",
@@ -799,6 +864,8 @@ static JNINativeMethod gMethods[] = {
     {"native_pullBatteryData", "(Landroid/os/Parcel;)I",        (void *)android_media_MediaPlayer_pullBatteryData},
     {"setParameter",        "(ILandroid/os/Parcel;)Z",          (void *)android_media_MediaPlayer_setParameter},
     {"getParameter",        "(ILandroid/os/Parcel;)V",          (void *)android_media_MediaPlayer_getParameter},
+    {"native_setRetransmitEndpoint", "(Ljava/lang/String;I)I",  (void *)android_media_MediaPlayer_setRetransmitEndpoint},
+    {"setNextMediaPlayer",  "(Landroid/media/MediaPlayer;)V",   (void *)android_media_MediaPlayer_setNextMediaPlayer},
 };
 
 static const char* const kClassPathName = "android/media/MediaPlayer";
@@ -810,6 +877,10 @@ static int register_android_media_MediaPlayer(JNIEnv *env)
                 "android/media/MediaPlayer", gMethods, NELEM(gMethods));
 }
 
+extern int register_android_media_Crypto(JNIEnv *env);
+extern int register_android_media_MediaCodec(JNIEnv *env);
+extern int register_android_media_MediaExtractor(JNIEnv *env);
+extern int register_android_media_MediaCodecList(JNIEnv *env);
 extern int register_android_media_MediaMetadataRetriever(JNIEnv *env);
 extern int register_android_media_MediaRecorder(JNIEnv *env);
 extern int register_android_media_MediaScanner(JNIEnv *env);
@@ -826,58 +897,78 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)
     jint result = -1;
 
     if (vm->GetEnv((void**) &env, JNI_VERSION_1_4) != JNI_OK) {
-        LOGE("ERROR: GetEnv failed\n");
+        ALOGE("ERROR: GetEnv failed\n");
         goto bail;
     }
     assert(env != NULL);
 
     if (register_android_media_MediaPlayer(env) < 0) {
-        LOGE("ERROR: MediaPlayer native registration failed\n");
+        ALOGE("ERROR: MediaPlayer native registration failed\n");
         goto bail;
     }
 
     if (register_android_media_MediaRecorder(env) < 0) {
-        LOGE("ERROR: MediaRecorder native registration failed\n");
+        ALOGE("ERROR: MediaRecorder native registration failed\n");
         goto bail;
     }
 
     if (register_android_media_MediaScanner(env) < 0) {
-        LOGE("ERROR: MediaScanner native registration failed\n");
+        ALOGE("ERROR: MediaScanner native registration failed\n");
         goto bail;
     }
 
     if (register_android_media_MediaMetadataRetriever(env) < 0) {
-        LOGE("ERROR: MediaMetadataRetriever native registration failed\n");
+        ALOGE("ERROR: MediaMetadataRetriever native registration failed\n");
         goto bail;
     }
 
     if (register_android_media_AmrInputStream(env) < 0) {
-        LOGE("ERROR: AmrInputStream native registration failed\n");
+        ALOGE("ERROR: AmrInputStream native registration failed\n");
         goto bail;
     }
 
     if (register_android_media_ResampleInputStream(env) < 0) {
-        LOGE("ERROR: ResampleInputStream native registration failed\n");
+        ALOGE("ERROR: ResampleInputStream native registration failed\n");
         goto bail;
     }
 
     if (register_android_media_MediaProfiles(env) < 0) {
-        LOGE("ERROR: MediaProfiles native registration failed");
+        ALOGE("ERROR: MediaProfiles native registration failed");
         goto bail;
     }
 
     if (register_android_mtp_MtpDatabase(env) < 0) {
-        LOGE("ERROR: MtpDatabase native registration failed");
+        ALOGE("ERROR: MtpDatabase native registration failed");
         goto bail;
     }
 
     if (register_android_mtp_MtpDevice(env) < 0) {
-        LOGE("ERROR: MtpDevice native registration failed");
+        ALOGE("ERROR: MtpDevice native registration failed");
         goto bail;
     }
 
     if (register_android_mtp_MtpServer(env) < 0) {
-        LOGE("ERROR: MtpServer native registration failed");
+        ALOGE("ERROR: MtpServer native registration failed");
+        goto bail;
+    }
+
+    if (register_android_media_MediaCodec(env) < 0) {
+        ALOGE("ERROR: MediaCodec native registration failed");
+        goto bail;
+    }
+
+    if (register_android_media_MediaExtractor(env) < 0) {
+        ALOGE("ERROR: MediaCodec native registration failed");
+        goto bail;
+    }
+
+    if (register_android_media_MediaCodecList(env) < 0) {
+        ALOGE("ERROR: MediaCodec native registration failed");
+        goto bail;
+    }
+
+    if (register_android_media_Crypto(env) < 0) {
+        ALOGE("ERROR: MediaCodec native registration failed");
         goto bail;
     }
 

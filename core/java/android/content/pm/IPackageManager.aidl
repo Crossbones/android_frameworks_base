@@ -22,6 +22,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
+import android.content.pm.ContainerEncryptionParams;
 import android.content.pm.FeatureInfo;
 import android.content.pm.IPackageInstallObserver;
 import android.content.pm.IPackageDeleteObserver;
@@ -49,8 +50,8 @@ import android.content.IntentSender;
  *  {@hide}
  */
 interface IPackageManager {
-    PackageInfo getPackageInfo(String packageName, int flags);
-    int getPackageUid(String packageName);
+    PackageInfo getPackageInfo(String packageName, int flags, int userId);
+    int getPackageUid(String packageName, int userId);
     int[] getPackageGids(String packageName);
     
     String[] currentToCanonicalPackageNames(in String[] names);
@@ -64,15 +65,15 @@ interface IPackageManager {
     
     List<PermissionGroupInfo> getAllPermissionGroups(int flags);
     
-    ApplicationInfo getApplicationInfo(String packageName, int flags);
+    ApplicationInfo getApplicationInfo(String packageName, int flags ,int userId);
 
-    ActivityInfo getActivityInfo(in ComponentName className, int flags);
+    ActivityInfo getActivityInfo(in ComponentName className, int flags, int userId);
 
-    ActivityInfo getReceiverInfo(in ComponentName className, int flags);
+    ActivityInfo getReceiverInfo(in ComponentName className, int flags, int userId);
 
-    ServiceInfo getServiceInfo(in ComponentName className, int flags);
+    ServiceInfo getServiceInfo(in ComponentName className, int flags, int userId);
 
-    ProviderInfo getProviderInfo(in ComponentName className, int flags);
+    ProviderInfo getProviderInfo(in ComponentName className, int flags, int userId);
 
     int checkPermission(String permName, String pkgName);
     
@@ -81,7 +82,11 @@ interface IPackageManager {
     boolean addPermission(in PermissionInfo info);
     
     void removePermission(String name);
-    
+
+    void grantPermission(String packageName, String permissionName);
+
+    void revokePermission(String packageName, String permissionName);
+
     boolean isProtectedBroadcast(String actionName);
     
     int checkSignatures(String pkg1, String pkg2);
@@ -94,24 +99,24 @@ interface IPackageManager {
     
     int getUidForSharedUser(String sharedUserName);
     
-    ResolveInfo resolveIntent(in Intent intent, String resolvedType, int flags);
+    ResolveInfo resolveIntent(in Intent intent, String resolvedType, int flags, int userId);
 
     List<ResolveInfo> queryIntentActivities(in Intent intent, 
-            String resolvedType, int flags);
+            String resolvedType, int flags, int userId);
 
     List<ResolveInfo> queryIntentActivityOptions(
             in ComponentName caller, in Intent[] specifics,
             in String[] specificTypes, in Intent intent,
-            String resolvedType, int flags);
+            String resolvedType, int flags, int userId);
 
     List<ResolveInfo> queryIntentReceivers(in Intent intent,
-            String resolvedType, int flags);
+            String resolvedType, int flags, int userId);
 
     ResolveInfo resolveService(in Intent intent,
-            String resolvedType, int flags);
+            String resolvedType, int flags, int userId);
 
     List<ResolveInfo> queryIntentServices(in Intent intent,
-            String resolvedType, int flags);
+            String resolvedType, int flags, int userId);
 
     /**
      * This implements getInstalledPackages via a "last returned row"
@@ -127,7 +132,7 @@ interface IPackageManager {
      * limit that kicks in when flags are included that bloat up the data
      * returned.
      */
-    ParceledListSlice getInstalledApplications(int flags, in String lastRead);
+    ParceledListSlice getInstalledApplications(int flags, in String lastRead, int userId);
 
     /**
      * Retrieve all applications that are marked as persistent.
@@ -137,7 +142,7 @@ interface IPackageManager {
      */
     List<ApplicationInfo> getPersistentApplications(int flags);
 
-    ProviderInfo resolveContentProvider(String name, int flags);
+    ProviderInfo resolveContentProvider(String name, int flags, int userId);
 
     /**
      * Retrieve sync information for all content providers.
@@ -208,28 +213,28 @@ interface IPackageManager {
      * As per {@link android.content.pm.PackageManager#setComponentEnabledSetting}.
      */
     void setComponentEnabledSetting(in ComponentName componentName,
-            in int newState, in int flags);
+            in int newState, in int flags, int userId);
 
     /**
      * As per {@link android.content.pm.PackageManager#getComponentEnabledSetting}.
      */
-    int getComponentEnabledSetting(in ComponentName componentName);
+    int getComponentEnabledSetting(in ComponentName componentName, int userId);
     
     /**
      * As per {@link android.content.pm.PackageManager#setApplicationEnabledSetting}.
      */
-    void setApplicationEnabledSetting(in String packageName, in int newState, int flags);
+    void setApplicationEnabledSetting(in String packageName, in int newState, int flags, int userId);
     
     /**
      * As per {@link android.content.pm.PackageManager#getApplicationEnabledSetting}.
      */
-    int getApplicationEnabledSetting(in String packageName);
+    int getApplicationEnabledSetting(in String packageName, int userId);
     
     /**
      * Set whether the given package should be considered stopped, making
      * it not visible to implicit intents that filter out stopped packages.
      */
-    void setPackageStoppedState(String packageName, boolean stopped);
+    void setPackageStoppedState(String packageName, boolean stopped, int userId);
 
     /**
      * Free storage by deleting LRU sorted list of cache files across
@@ -292,7 +297,7 @@ interface IPackageManager {
      * files need to be deleted
      * @param observer a callback used to notify when the operation is completed.
      */
-    void clearApplicationUserData(in String packageName, IPackageDataObserver observer);
+    void clearApplicationUserData(in String packageName, IPackageDataObserver observer, int userId);
     
    /**
      * Get package statistics including the code, data and cache size for
@@ -354,14 +359,24 @@ interface IPackageManager {
 
     UserInfo createUser(in String name, int flags);
     boolean removeUser(int userId);
+    void updateUserName(int userId, String name);
 
     void installPackageWithVerification(in Uri packageURI, in IPackageInstallObserver observer,
             int flags, in String installerPackageName, in Uri verificationURI,
-            in ManifestDigest manifestDigest);
+            in ManifestDigest manifestDigest, in ContainerEncryptionParams encryptionParams);
 
     void verifyPendingInstall(int id, int verificationCode);
 
     VerifierDeviceIdentity getVerifierDeviceIdentity();
 
     boolean isFirstBoot();
+
+    List<UserInfo> getUsers();
+    UserInfo getUser(int userId);
+
+    void setPermissionEnforced(String permission, boolean enforced);
+    boolean isPermissionEnforced(String permission);
+
+    /** Reflects current DeviceStorageMonitorService state */
+    boolean isStorageLow();
 }

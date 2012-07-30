@@ -16,6 +16,7 @@
 
 package android.accessibilityservice;
 
+import android.os.Bundle;
 import android.accessibilityservice.AccessibilityServiceInfo;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.IAccessibilityInteractionConnectionCallback;
@@ -30,80 +31,143 @@ interface IAccessibilityServiceConnection {
     void setServiceInfo(in AccessibilityServiceInfo info);
 
     /**
-     * Finds an {@link AccessibilityNodeInfo} by accessibility id.
+     * Finds an {@link android.view.accessibility.AccessibilityNodeInfo} by accessibility id.
      *
-     * @param accessibilityWindowId A unique window id.
-     * @param accessibilityViewId A unique View accessibility id.
+     * @param accessibilityWindowId A unique window id. Use
+     *     {@link android.view.accessibility.AccessibilityNodeInfo#ACTIVE_WINDOW_ID}
+     *     to query the currently active window.
+     * @param accessibilityNodeId A unique view id or virtual descendant id from
+     *     where to start the search. Use
+     *     {@link android.view.accessibility.AccessibilityNodeInfo#ROOT_NODE_ID}
+     *     to start from the root.
      * @param interactionId The id of the interaction for matching with the callback result.
      * @param callback Callback which to receive the result.
+     * @param flags Additional flags.
      * @param threadId The id of the calling thread.
      * @return The current window scale, where zero means a failure.
      */
     float findAccessibilityNodeInfoByAccessibilityId(int accessibilityWindowId,
-        int accessibilityViewId, int interactionId,
-        IAccessibilityInteractionConnectionCallback callback, long threadId);
+        long accessibilityNodeId, int interactionId,
+        IAccessibilityInteractionConnectionCallback callback, int flags, long threadId);
 
     /**
-     * Finds {@link AccessibilityNodeInfo}s by View text. The match is case
-     * insensitive containment. The search is performed in the window whose
-     * id is specified and starts from the View whose accessibility id is
-     * specified.
+     * Finds {@link android.view.accessibility.AccessibilityNodeInfo}s by View text.
+     * The match is case insensitive containment. The search is performed in the window
+     * whose id is specified and starts from the node whose accessibility id is specified.
      *
+     * @param accessibilityWindowId A unique window id. Use
+     *     {@link android.view.accessibility.AccessibilityNodeInfo#ACTIVE_WINDOW_ID}
+     *     to query the currently active window.
+     * @param accessibilityNodeId A unique view id or virtual descendant id from
+     *     where to start the search. Use
+     *     {@link android.view.accessibility.AccessibilityNodeInfo#ROOT_NODE_ID}
+     *     to start from the root.
      * @param text The searched text.
-     * @param accessibilityWindowId A unique window id.
-     * @param accessibilityViewId A unique View accessibility id from where to start the search.
-     *        Use {@link android.view.View#NO_ID} to start from the root.
      * @param interactionId The id of the interaction for matching with the callback result.
      * @param callback Callback which to receive the result.
      * @param threadId The id of the calling thread.
      * @return The current window scale, where zero means a failure.
      */
-    float findAccessibilityNodeInfosByViewText(String text, int accessibilityWindowId,
-        int accessibilityViewId, int interractionId,
-        IAccessibilityInteractionConnectionCallback callback, long threadId);
-
-    /**
-     * Finds {@link AccessibilityNodeInfo}s by View text. The match is case
-     * insensitive containment. The search is performed in the currently
-     * active window and start from the root View in the window.
-     *
-     * @param text The searched text.
-     * @param accessibilityId The id of the view from which to start searching.
-     *        Use {@link android.view.View#NO_ID} to start from the root.
-     * @param interactionId The id of the interaction for matching with the callback result.
-     * @param callback Callback which to receive the result.
-     * @param threadId The id of the calling thread.
-     * @return The current window scale, where zero means a failure.
-     */
-    float findAccessibilityNodeInfosByViewTextInActiveWindow(String text,
-        int interactionId, IAccessibilityInteractionConnectionCallback callback,
+    float findAccessibilityNodeInfosByText(int accessibilityWindowId, long accessibilityNodeId,
+        String text, int interactionId, IAccessibilityInteractionConnectionCallback callback,
         long threadId);
 
     /**
-     * Finds an {@link AccessibilityNodeInfo} by View id. The search is performed
-     * in the currently active window and starts from the root View in the window.
+     * Finds an {@link android.view.accessibility.AccessibilityNodeInfo} by View id. The search
+     * is performed in the window whose id is specified and starts from the node whose
+     * accessibility id is specified.
      *
+     * @param accessibilityWindowId A unique window id. Use
+     *     {@link android.view.accessibility.AccessibilityNodeInfo#ACTIVE_WINDOW_ID}
+     *     to query the currently active window.
+     * @param accessibilityNodeId A unique view id or virtual descendant id from
+     *     where to start the search. Use
+     *     {@link android.view.accessibility.AccessibilityNodeInfo#ROOT_NODE_ID}
+     *     to start from the root.
      * @param id The id of the node.
      * @param interactionId The id of the interaction for matching with the callback result.
      * @param callback Callback which to receive the result.
      * @param threadId The id of the calling thread.
      * @return The current window scale, where zero means a failure.
      */
-    float findAccessibilityNodeInfoByViewIdInActiveWindow(int viewId, int interactionId,
-        IAccessibilityInteractionConnectionCallback callback, long threadId);
+    float findAccessibilityNodeInfoByViewId(int accessibilityWindowId, long accessibilityNodeId,
+        int viewId, int interactionId, IAccessibilityInteractionConnectionCallback callback,
+        long threadId);
 
     /**
-     * Performs an accessibility action on an {@link AccessibilityNodeInfo}.
+     * Finds the {@link android.view.accessibility.AccessibilityNodeInfo} that has the specified
+     * focus type. The search is performed in the window whose id is specified and starts from
+     * the node whose accessibility id is specified.
      *
-     * @param accessibilityWindowId The id of the window.
-     * @param accessibilityViewId A unique View accessibility id.
+     * @param accessibilityWindowId A unique window id. Use
+     *     {@link android.view.accessibility.AccessibilityNodeInfo#ACTIVE_WINDOW_ID}
+     *     to query the currently active window.
+     * @param accessibilityNodeId A unique view id or virtual descendant id from
+     *     where to start the search. Use
+     *     {@link android.view.accessibility.AccessibilityNodeInfo#ROOT_NODE_ID}
+     *     to start from the root.
+     * @param focusType The type of focus to find.
+     * @param interactionId The id of the interaction for matching with the callback result.
+     * @param callback Callback which to receive the result.
+     * @param threadId The id of the calling thread.
+     * @return The current window scale, where zero means a failure.
+     */
+    float findFocus(int accessibilityWindowId, long accessibilityNodeId, int focusType,
+        int interactionId, IAccessibilityInteractionConnectionCallback callback, long threadId);
+
+    /**
+     * Finds an {@link android.view.accessibility.AccessibilityNodeInfo} to take accessibility
+     * focus in the given direction. The search is performed in the window whose id is
+     * specified and starts from the node whose accessibility id is specified.
+     *
+     * @param accessibilityWindowId A unique window id. Use
+     *     {@link android.view.accessibility.AccessibilityNodeInfo#ACTIVE_WINDOW_ID}
+     *     to query the currently active window.
+     * @param accessibilityNodeId A unique view id or virtual descendant id from
+     *     where to start the search. Use
+     *     {@link android.view.accessibility.AccessibilityNodeInfo#ROOT_NODE_ID}
+     *     to start from the root.
+     * @param direction The direction in which to search for focusable.
+     * @param interactionId The id of the interaction for matching with the callback result.
+     * @param callback Callback which to receive the result.
+     * @param threadId The id of the calling thread.
+     * @return The current window scale, where zero means a failure.
+     */
+    float focusSearch(int accessibilityWindowId, long accessibilityNodeId, int direction,
+        int interactionId, IAccessibilityInteractionConnectionCallback callback, long threadId);
+
+    /**
+     * Performs an accessibility action on an
+     * {@link android.view.accessibility.AccessibilityNodeInfo}.
+     *
+     * @param accessibilityWindowId A unique window id. Use
+     *     {@link android.view.accessibility.AccessibilityNodeInfo#ACTIVE_WINDOW_ID}
+     *     to query the currently active window.
+     * @param accessibilityNodeId A unique view id or virtual descendant id from
+     *     where to start the search. Use
+     *     {@link android.view.accessibility.AccessibilityNodeInfo#ROOT_NODE_ID}
+     *     to start from the root.
      * @param action The action to perform.
+     * @param arguments Optional action arguments.
      * @param interactionId The id of the interaction for matching with the callback result.
      * @param callback Callback which to receive the result.
      * @param threadId The id of the calling thread.
      * @return Whether the action was performed.
      */
-    boolean performAccessibilityAction(int accessibilityWindowId, int accessibilityViewId,
-        int action, int interactionId, IAccessibilityInteractionConnectionCallback callback,
-        long threadId);
+    boolean performAccessibilityAction(int accessibilityWindowId, long accessibilityNodeId,
+        int action, in Bundle arguments, int interactionId,
+        IAccessibilityInteractionConnectionCallback callback, long threadId);
+
+    /**
+     * @return The associated accessibility service info.
+     */
+    AccessibilityServiceInfo getServiceInfo();
+
+    /**
+     * Performs a global action, such as going home, going back, etc.
+     *
+     * @param action The action to perform.
+     * @return Whether the action was performed.
+     */
+    boolean performGlobalAction(int action);
 }

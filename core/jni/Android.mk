@@ -26,7 +26,6 @@ endif
 LOCAL_CFLAGS += -DGL_GLEXT_PROTOTYPES -DEGL_EGLEXT_PROTOTYPES
 
 LOCAL_SRC_FILES:= \
-	ActivityManager.cpp \
 	AndroidRuntime.cpp \
 	Time.cpp \
 	com_android_internal_content_NativeLibraryHelper.cpp \
@@ -39,21 +38,22 @@ LOCAL_SRC_FILES:= \
 	android_opengl_GLES11Ext.cpp \
 	android_opengl_GLES20.cpp \
 	android_database_CursorWindow.cpp \
-	android_database_SQLiteCompiledSql.cpp \
+	android_database_SQLiteCommon.cpp \
+	android_database_SQLiteConnection.cpp \
+	android_database_SQLiteGlobal.cpp \
 	android_database_SQLiteDebug.cpp \
-	android_database_SQLiteDatabase.cpp \
-	android_database_SQLiteProgram.cpp \
-	android_database_SQLiteQuery.cpp \
-	android_database_SQLiteStatement.cpp \
 	android_emoji_EmojiFactory.cpp \
 	android_view_Display.cpp \
+	android_view_DisplayEventReceiver.cpp \
 	android_view_Surface.cpp \
 	android_view_TextureView.cpp \
 	android_view_InputChannel.cpp \
-	android_view_InputQueue.cpp \
+	android_view_InputDevice.cpp \
+	android_view_InputEventReceiver.cpp \
 	android_view_KeyEvent.cpp \
 	android_view_KeyCharacterMap.cpp \
 	android_view_HardwareRenderer.cpp \
+	android_view_GLES20DisplayList.cpp \
 	android_view_GLES20Canvas.cpp \
 	android_view_MotionEvent.cpp \
 	android_view_PointerIcon.cpp \
@@ -65,18 +65,17 @@ LOCAL_SRC_FILES:= \
 	android_os_MemoryFile.cpp \
 	android_os_MessageQueue.cpp \
 	android_os_ParcelFileDescriptor.cpp \
-	android_os_Power.cpp \
+	android_os_Parcel.cpp \
 	android_os_StatFs.cpp \
 	android_os_SystemClock.cpp \
 	android_os_SystemProperties.cpp \
+	android_os_Trace.cpp \
 	android_os_UEventObserver.cpp \
 	android_net_LocalSocketImpl.cpp \
 	android_net_NetUtils.cpp \
 	android_net_TrafficStats.cpp \
 	android_net_wifi_Wifi.cpp \
 	android_nio_utils.cpp \
-	android_nfc_NdefMessage.cpp \
-	android_nfc_NdefRecord.cpp \
 	android_text_format_Time.cpp \
 	android_util_AssetManager.cpp \
 	android_util_Binder.cpp \
@@ -129,6 +128,7 @@ LOCAL_SRC_FILES:= \
 	android_media_ToneGenerator.cpp \
 	android_hardware_Camera.cpp \
 	android_hardware_SensorManager.cpp \
+	android_hardware_SerialPort.cpp \
 	android_hardware_UsbDevice.cpp \
 	android_hardware_UsbDeviceConnection.cpp \
 	android_hardware_UsbRequest.cpp \
@@ -161,12 +161,11 @@ LOCAL_C_INCLUDES += \
 	$(JNI_H_INCLUDE) \
 	$(LOCAL_PATH)/android/graphics \
 	$(LOCAL_PATH)/../../libs/hwui \
-	$(LOCAL_PATH)/../../opengl/libs \
+	$(LOCAL_PATH)/../../../native/opengl/libs \
 	$(call include-path-for, bluedroid) \
 	$(call include-path-for, libhardware)/hardware \
 	$(call include-path-for, libhardware_legacy)/hardware_legacy \
-	$(LOCAL_PATH)/../../include/ui \
-	$(LOCAL_PATH)/../../include/utils \
+ $(TOP)/frameworks/av/include \
 	external/skia/include/core \
 	external/skia/include/effects \
 	external/skia/include/images \
@@ -187,6 +186,7 @@ LOCAL_C_INCLUDES += \
 	libcore/include
 
 LOCAL_SHARED_LIBRARIES := \
+	libandroidfw \
 	libexpat \
 	libnativehelper \
 	libcutils \
@@ -211,12 +211,12 @@ LOCAL_SHARED_LIBRARIES := \
 	libicuuc \
 	libicui18n \
 	libmedia \
+	libmedia_native \
 	libwpa_client \
 	libjpeg \
-	libnfc_ndef \
 	libusbhost \
 	libharfbuzz \
-	libz \
+	libz
 
 ifeq ($(USE_OPENGL_RENDERER),true)
 	LOCAL_SHARED_LIBRARIES += libhwui

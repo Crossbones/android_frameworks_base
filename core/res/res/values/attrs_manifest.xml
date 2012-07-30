@@ -157,7 +157,7 @@
              of permission to a requesting application at installation, without
              asking for the user's explicit approval (though the user always
              has the option to review these permissions before installing). -->
-        <enum name="normal" value="0" />
+        <flag name="normal" value="0" />
         <!-- A higher-risk permission that would give a requesting application
              access to private user data or control over the device that can
              negatively impact the user.  Because this type of permission
@@ -167,13 +167,13 @@
              user and require confirmation before proceeding, or some other
              approach may be taken to avoid the user automatically allowing
              the use of such facilities.  -->
-        <enum name="dangerous" value="1" />
+        <flag name="dangerous" value="1" />
         <!-- A permission that the system is to grant only if the requesting
              application is signed with the same certificate as the application
              that declared the permission. If the certificates match, the system
              automatically grants the permission without notifying the user or
              asking for the user's explicit approval. -->
-        <enum name="signature" value="2" />
+        <flag name="signature" value="2" />
         <!-- A permission that the system is to grant only to packages in the
              Android system image <em>or</em> that are signed with the same
              certificates. Please avoid using this option, as the
@@ -183,9 +183,30 @@
              vendors have applications built in to a system image which need
              to share specific features explicitly because they are being built
              together. -->
-        <enum name="signatureOrSystem" value="3" />
+        <flag name="signatureOrSystem" value="3" />
+        <!-- Additional flag from base permission type: this permission can also
+             be granted to any applications installed on the system image.
+             Please avoid using this option, as the
+             signature protection level should be sufficient for most needs and
+             works regardless of exactly where applications are installed.  This
+             permission flag is used for certain special situations where multiple
+             vendors have applications built in to a system image which need
+             to share specific features explicitly because they are being built
+             together. -->
+        <flag name="system" value="0x10" />
+        <!-- Additional flag from base permission type: this permission can also
+             (optionally) be granted to development applications. -->
+        <flag name="development" value="0x20" />
     </attr>
-    
+
+    <!-- Flags indicating more context for a permission group. @hide -->
+    <attr name="permissionGroupFlags">
+        <!-- Set to indicate that this permission group contains permissions
+             protecting access to some information that is considered
+             personal to the user (such as contacts, e-mails, etc). -->
+        <flag name="personalInfo" value="0x0001" />
+    </attr>
+
     <!-- Specified the name of a group that this permission is associated
          with.  The group must have been defined with the
          {@link android.R.styleable#AndroidManifestPermissionGroup permission-group} tag. -->
@@ -530,13 +551,13 @@
         <enum name="sensorLandscape" value="6" />
         <!-- Would like to have the screen in portrait orientation, but can
              use the sensor to change which direction the screen is facing. -->
-        <enum name="sensorPortait" value="7" />
+        <enum name="sensorPortrait" value="7" />
         <!-- Would like to have the screen in landscape orientation, turned in
              the opposite direction from normal landscape. -->
         <enum name="reverseLandscape" value="8" />
         <!-- Would like to have the screen in portrait orientation, turned in
              the opposite direction from normal portrait. -->
-        <enum name="reversePortait" value="9" />
+        <enum name="reversePortrait" value="9" />
         <!-- Orientation is determined by a physical orientation sensor:
              the display will rotate based on how the user moves the device.
              This allows any of the 4 possible rotations, regardless of what
@@ -727,6 +748,9 @@
         <flag name="splitActionBarWhenNarrow" value="1" />
     </attr>
 
+    <!-- The name of the logical parent of the activity as it appears in the manifest. -->
+    <attr name="parentActivityName" format="string" />
+
     <!-- The <code>manifest</code> tag is the root of an
          <code>AndroidManifest.xml</code> file,
          describing the contents of an Android package (.apk) file.  One
@@ -830,6 +854,9 @@
              @hide -->
         <attr name="cantSaveState" format="boolean" />
         <attr name="uiOptions" />
+        <!-- Declare that your application will be able to deal with RTL (right to left) layouts.
+             If set to  false (default value), your application will not care about RTL layouts. -->
+        <attr name="supportsRtl" format="boolean" />
     </declare-styleable>
     
     <!-- The <code>permission</code> tag declares a security permission that can be
@@ -876,6 +903,7 @@
         <attr name="icon" />
         <attr name="logo" />
         <attr name="description" />
+        <attr name="priority" />
     </declare-styleable>
     
     <!-- The <code>permission-tree</code> tag declares the base of a tree of
@@ -924,6 +952,14 @@
         tag; often this is one of the {@link android.Manifest.permission standard
         system permissions}. -->
         <attr name="name" />
+        <!--  Specify whether this permission is required for the application.
+              The default is true, meaning the application requires the
+              permission, and it must always be granted when it is installed.
+              If you set this to false, then in some cases the application may
+              be installed with it being granted the permission, and it will
+              need to request the permission later if it needs it.
+        <attr name="required" format="boolean" />
+        -->
     </declare-styleable>
 
     <!-- The <code>uses-configuration</code> tag specifies
@@ -1235,6 +1271,10 @@
              when the user remove a task rooted in an activity owned by
              the application.  The default is false. -->
         <attr name="stopWithTask" format="boolean" />
+        <!-- If set to true, this service will run under a special process
+             that is isolated from the rest of the system.  The only communication
+             with it is through the Service API (binding and starting). -->
+        <attr name="isolatedProcess" format="boolean" />
     </declare-styleable>
     
     <!-- The <code>receiver</code> tag declares an
@@ -1321,6 +1361,7 @@
         <attr name="immersive" />
         <attr name="hardwareAccelerated" />
         <attr name="uiOptions" />
+        <attr name="parentActivityName" />
     </declare-styleable>
     
     <!-- The <code>activity-alias</code> tag declares a new
@@ -1357,6 +1398,7 @@
              component specific values). -->
         <attr name="enabled" />
         <attr name="exported" />
+        <attr name="parentActivityName" />
     </declare-styleable>
     
     <!-- The <code>meta-data</code> tag is used to attach additional

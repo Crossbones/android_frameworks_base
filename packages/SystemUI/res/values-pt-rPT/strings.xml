@@ -48,7 +48,7 @@
     <string name="status_bar_settings_notifications" msgid="397146176280905137">"Notificações"</string>
     <string name="bluetooth_tethered" msgid="7094101612161133267">"Bluetooth ligado"</string>
     <string name="status_bar_input_method_settings_configure_input_methods" msgid="3504292471512317827">"Configurar métodos introdução"</string>
-    <string name="status_bar_use_physical_keyboard" msgid="3695516942412442936">"Utilizar teclado físico"</string>
+    <string name="status_bar_use_physical_keyboard" msgid="7551903084416057810">"Teclado físico"</string>
     <string name="usb_device_permission_prompt" msgid="834698001271562057">"Permitir que a aplicação <xliff:g id="APPLICATION">%1$s</xliff:g> aceda ao dispositivo USB?"</string>
     <string name="usb_accessory_permission_prompt" msgid="5171775411178865750">"Permitir que a aplicação <xliff:g id="APPLICATION">%1$s</xliff:g> aceda ao acessório USB?"</string>
     <string name="usb_device_confirm_prompt" msgid="5161205258635253206">"Abrir <xliff:g id="ACTIVITY">%1$s</xliff:g> quando este dispositivo USB estiver ligado?"</string>
@@ -138,4 +138,11 @@
     <string name="gps_notification_searching_text" msgid="8574247005642736060">"A procurar GPS"</string>
     <string name="gps_notification_found_text" msgid="4619274244146446464">"Localização definida por GPS"</string>
     <string name="accessibility_clear_all" msgid="5235938559247164925">"Limpar todas as notificações."</string>
+    <string name="dreams_dock_launcher" msgid="3541196417659166245">"Ativar proteção de ecrã"</string>
+    <string name="status_bar_notification_inspect_item_title" msgid="1163547729015390250">"Informações da aplicação"</string>
+    <string name="notifications_off_title" msgid="8936620513608443224">"Notificações desativadas"</string>
+    <string name="notifications_off_text" msgid="2529001315769385273">"Toque aqui para voltar a ativar as notificações."</string>
+    <string name="accessibility_rotation_lock_off" msgid="4062780228931590069">"O ecrã será rodado automaticamente."</string>
+    <string name="accessibility_rotation_lock_on_landscape" msgid="6731197337665366273">"O ecrã está bloqueado na orientação horizontal."</string>
+    <string name="accessibility_rotation_lock_on_portrait" msgid="5809367521644012115">"O ecrã está bloqueado na orientação vertical."</string>
 </resources>

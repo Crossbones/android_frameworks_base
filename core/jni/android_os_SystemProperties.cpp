@@ -15,7 +15,11 @@
 ** limitations under the License.
 */
 
+#define LOG_TAG "SysPropJNI"
+
 #include "cutils/properties.h"
+#include "utils/misc.h"
+#include <utils/Log.h>
 #include "jni.h"
 #include "android_runtime/AndroidRuntime.h"
 #include <nativehelper/JNIHelp.h>
@@ -65,6 +69,7 @@ static jint SystemProperties_get_int(JNIEnv *env, jobject clazz,
     int len;
     const char* key;
     char buf[PROPERTY_VALUE_MAX];
+    char* end;
     jint result = defJ;
 
     if (keyJ == NULL) {
@@ -76,9 +81,10 @@ static jint SystemProperties_get_int(JNIEnv *env, jobject clazz,
 
     len = property_get(key, buf, "");
     if (len > 0) {
-        jint temp;
-        if (sscanf(buf, "%d", &temp) == 1)
-            result = temp;
+        result = strtol(buf, &end, 0);
+        if (end == buf) {
+            result = defJ;
+        }
     }
 
     env->ReleaseStringUTFChars(keyJ, key);
@@ -93,6 +99,7 @@ static jlong SystemProperties_get_long(JNIEnv *env, jobject clazz,
     int len;
     const char* key;
     char buf[PROPERTY_VALUE_MAX];
+    char* end;
     jlong result = defJ;
 
     if (keyJ == NULL) {
@@ -104,9 +111,10 @@ static jlong SystemProperties_get_long(JNIEnv *env, jobject clazz,
 
     len = property_get(key, buf, "");
     if (len > 0) {
-        jlong temp;
-        if (sscanf(buf, "%lld", &temp) == 1)
-            result = temp;
+        result = strtoll(buf, &end, 0);
+        if (end == buf) {
+            result = defJ;
+        }
     }
 
     env->ReleaseStringUTFChars(keyJ, key);
@@ -184,6 +192,34 @@ static void SystemProperties_set(JNIEnv *env, jobject clazz,
     }
 }
 
+static JavaVM* sVM = NULL;
+static jclass sClazz = NULL;
+static jmethodID sCallChangeCallbacks;
+
+static void do_report_sysprop_change() {
+    //ALOGI("Java SystemProperties: VM=%p, Clazz=%p", sVM, sClazz);
+    if (sVM != NULL && sClazz != NULL) {
+        JNIEnv* env;
+        if (sVM->GetEnv((void **)&env, JNI_VERSION_1_4) >= 0) {
+            //ALOGI("Java SystemProperties: calling %p", sCallChangeCallbacks);
+            env->CallStaticVoidMethod(sClazz, sCallChangeCallbacks);
+        }
+    }
+}
+
+static void SystemProperties_add_change_callback(JNIEnv *env, jobject clazz)
+{
+    // This is called with the Java lock held.
+    if (sVM == NULL) {
+        env->GetJavaVM(&sVM);
+    }
+    if (sClazz == NULL) {
+        sClazz = (jclass) env->NewGlobalRef(clazz);
+        sCallChangeCallbacks = env->GetStaticMethodID(sClazz, "callChangeCallbacks", "()V");
+        add_sysprop_change_callback(do_report_sysprop_change, -10000);
+    }
+}
+
 static JNINativeMethod method_table[] = {
     { "native_get", "(Ljava/lang/String;)Ljava/lang/String;",
       (void*) SystemProperties_getS },
@@ -197,6 +233,8 @@ static JNINativeMethod method_table[] = {
       (void*) SystemProperties_get_boolean },
     { "native_set", "(Ljava/lang/String;Ljava/lang/String;)V",
       (void*) SystemProperties_set },
+    { "native_add_change_callback", "()V",
+      (void*) SystemProperties_add_change_callback },
 };
 
 int register_android_os_SystemProperties(JNIEnv *env)

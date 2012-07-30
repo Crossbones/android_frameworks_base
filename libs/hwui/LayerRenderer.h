@@ -33,7 +33,7 @@ namespace uirenderer {
 
 // Debug
 #if DEBUG_LAYER_RENDERER
-    #define LAYER_RENDERER_LOGD(...) LOGD(__VA_ARGS__)
+    #define LAYER_RENDERER_LOGD(...) ALOGD(__VA_ARGS__)
 #else
     #define LAYER_RENDERER_LOGD(...)
 #endif
@@ -47,7 +47,7 @@ public:
     ANDROID_API LayerRenderer(Layer* layer);
     virtual ~LayerRenderer();
 
-    virtual void prepareDirty(float left, float top, float right, float bottom, bool opaque);
+    virtual int prepareDirty(float left, float top, float right, float bottom, bool opaque);
     virtual void finish();
 
     virtual bool hasLayer();
@@ -61,6 +61,7 @@ public:
             bool isOpaque, GLenum renderTarget, float* transform);
     ANDROID_API static void destroyLayer(Layer* layer);
     ANDROID_API static void destroyLayerDeferred(Layer* layer);
+    ANDROID_API static void flushLayer(Layer* layer);
     ANDROID_API static bool copyLayer(Layer* layer, SkBitmap* bitmap);
 
 private:

@@ -589,12 +589,6 @@
 
         <!-- NumberPicker style. -->
         <attr name="numberPickerStyle" format="reference" />
-        <!-- NumberPicker up button style. -->
-        <attr name="numberPickerUpButtonStyle" format="reference" />
-        <!-- NumberPicker down button style. -->
-        <attr name="numberPickerDownButtonStyle" format="reference" />
-        <!-- NumberPicker input text style. -->
-        <attr name="numberPickerInputTextStyle" format="reference" />
 
         <!-- The CalendarView style. -->
         <attr name="calendarViewStyle" format="reference" />
@@ -834,6 +828,9 @@
         <!-- Default style for the Switch widget. -->
         <attr name="switchStyle" format="reference" />
 
+        <!-- Default style for the MediaRouteButton widget. -->
+        <attr name="mediaRouteButtonStyle" format="reference" />
+
         <!-- ============== -->
         <!-- Pointer styles -->
         <!-- ============== -->
@@ -841,6 +838,16 @@
 
         <!-- Reference to the Pointer style -->
         <attr name="pointerStyle" format="reference" />
+
+        <!-- The drawable for accessibility focused views. -->
+        <attr name="accessibilityFocusedDrawable" format="reference" />
+
+        <!-- Drawable for WebView find-on-page dialogue's "next" button. @hide -->
+        <attr name="findOnPageNextDrawable" format="reference" />
+
+        <!-- Drawable for WebView find-on-page dialogue's "previous" button. @hide -->
+        <attr name="findOnPagePreviousDrawable" format="reference" />
+
     </declare-styleable>
 
     <!-- **************************************************************** -->
@@ -858,6 +865,9 @@
     </ul>
         -->
     <attr name="textSize" format="dimension" />
+
+    <!-- Default font family. -->
+    <attr name="fontFamily" format="string" />
 
     <!-- Default text typeface. -->
     <attr name="typeface">
@@ -1154,6 +1164,21 @@
              <p>Corresponds to
              {@link android.view.inputmethod.EditorInfo#IME_FLAG_NO_ENTER_ACTION}. -->
         <flag name="flagNoEnterAction" value="0x40000000" />
+        <!-- Used to request that the IME should be capable of inputting ASCII
+             characters.  The intention of this flag is to ensure that the user
+             can type Roman alphabet characters in a {@link android.widget.TextView}
+             used for, typically, account ID or password input.  It is expected that IMEs
+             normally are able to input ASCII even without being told so (such IMEs
+             already respect this flag in a sense), but there could be some cases they
+             aren't when, for instance, only non-ASCII input languagaes like Arabic,
+             Greek, Hebrew, Russian are enabled in the IME.  Applications need to be
+             aware that the flag is not a guarantee, and not all IMEs will respect it.
+             However, it is strongly recommended for IME authors to respect this flag
+             especially when their IME could end up with a state that has only non-ASCII
+             input languages enabled.
+             <p>Corresponds to
+             {@link android.view.inputmethod.EditorInfo#IME_FLAG_FORCE_ASCII}. -->
+        <flag name="flagForceAscii" value="0x80000000" />
     </attr>
 
     <!-- A coordinate in the X dimension. -->
@@ -1497,6 +1522,14 @@
         <enum name="KEYCODE_CALENDAR" value="208" />
         <enum name="KEYCODE_MUSIC" value="209" />
         <enum name="KEYCODE_CALCULATOR" value="210" />
+        <enum name="KEYCODE_ZENKAKU_HANKAKU" value="211" />
+        <enum name="KEYCODE_EISU" value="212" />
+        <enum name="KEYCODE_MUHENKAN" value="213" />
+        <enum name="KEYCODE_HENKAN" value="214" />
+        <enum name="KEYCODE_KATAKANA_HIRAGANA" value="215" />
+        <enum name="KEYCODE_YEN" value="216" />
+        <enum name="KEYCODE_RO" value="217" />
+        <enum name="KEYCODE_KANA" value="218" />
     </attr>
 
     <!-- ***************************************************************** -->
@@ -1541,6 +1574,24 @@
              an absolute dimension or a fraction of the screen size in that
              dimension. -->
         <attr name="windowMinWidthMinor" format="dimension|fraction" />
+
+        <!-- A fixed width for the window along the major axis of the screen,
+             that is, when in landscape. Can be either an absolute dimension
+             or a fraction of the screen size in that dimension. -->
+        <attr name="windowFixedWidthMajor" format="dimension|fraction" />
+        <!-- A fixed height for the window along the minor axis of the screen,
+             that is, when in landscape. Can be either an absolute dimension
+             or a fraction of the screen size in that dimension. -->
+        <attr name="windowFixedHeightMinor" format="dimension|fraction" />
+
+        <!-- A fixed width for the window along the minor axis of the screen,
+             that is, when in portrait. Can be either an absolute dimension
+             or a fraction of the screen size in that dimension. -->
+        <attr name="windowFixedWidthMinor" format="dimension|fraction" />
+        <!-- A fixed height for the window along the major axis of the screen,
+             that is, when in portrait. Can be either an absolute dimension
+             or a fraction of the screen size in that dimension. -->
+        <attr name="windowFixedHeightMajor" format="dimension|fraction" />
     </declare-styleable>
 
     <!-- The set of attributes that describe a AlertDialog's theme. -->
@@ -1815,13 +1866,12 @@
         <!-- Defines whether the vertical scrollbar track should always be drawn. -->
         <attr name="scrollbarAlwaysDrawVerticalTrack" format="boolean" />
 
-        <!-- {@deprecated This attribute is deprecated and will be ignored as of
-             API level {@link android.os.Build.VERSION_CODES#ICE_CREAM_SANDWICH}.
+        <!-- This attribute is deprecated and will be ignored as of
+             API level 14 ({@link android.os.Build.VERSION_CODES#ICE_CREAM_SANDWICH}).
              Using fading edges may introduce noticeable performance
              degradations and should be used only when required by the application's
-             visual design. To request fading edges with API level
-             {@link android.os.Build.VERSION_CODES#ICE_CREAM_SANDWICH} and above,
-             use the <code>requiresFadingEdge</code> attribute instead.} -->
+             visual design. To request fading edges with API level 14 and above,
+             use the <code>android:requiresFadingEdge</code> attribute instead. -->
         <attr name="fadingEdge">
             <!-- No edge is faded. -->
             <flag name="none" value="0x00000000" />
@@ -2045,9 +2095,10 @@
             <!-- Locale -->
             <enum name="locale" value="3" />
         </attr>
+
         <!-- Direction of the text. A heuristic is used to determine the resolved text direction
              of paragraphs. -->
-        <attr name="textDirection" format="integer">
+         <attr name="textDirection" format="integer">
             <!-- Default -->
             <enum name="inherit" value="0" />
             <!-- Default for the root view. The first strong directional character determines the
@@ -2058,15 +2109,85 @@
                  it is LTR if it contains any strong LTR characters.  If there are neither, the
                  paragraph direction is the view’s resolved layout direction. -->
             <enum name="anyRtl" value="2" />
-            <!-- The paragraph direction is the same as the one held by a 60% majority of the
-                 characters. If there is no majority then the paragraph direction is the resolved
-                 layout direction of the View. -->
-            <enum name="charCount" value="3" />
             <!-- The paragraph direction is left to right. -->
-            <enum name="ltr" value="4" />
+            <enum name="ltr" value="3" />
             <!-- The paragraph direction is right to left. -->
-            <enum name="rtl" value="5" />
+            <enum name="rtl" value="4" />
+            <!-- The paragraph direction is coming from the system Locale. -->
+            <enum name="locale" value="5" />
         </attr>
+
+        <!-- Alignment of the text. A heuristic is used to determine the resolved
+            text alignment. -->
+        <attr name="textAlignment" format="integer">
+            <!-- Default -->
+            <enum name="inherit" value="0" />
+            <!-- Default for the root view. The gravity determines the alignment, ALIGN_NORMAL,
+                ALIGN_CENTER, or ALIGN_OPPOSITE, which are relative to each paragraph’s
+                text direction -->
+            <enum name="gravity" value="1" />
+            <!-- Align to the start of the paragraph, e.g. ALIGN_NORMAL. -->
+            <enum name="textStart" value="2" />
+            <!-- Align to the end of the paragraph, e.g. ALIGN_OPPOSITE. -->
+            <enum name="textEnd" value="3" />
+            <!-- Center the paragraph, e.g. ALIGN_CENTER. -->
+            <enum name="center" value="4" />
+            <!-- Align to the start of the view, which is ALIGN_LEFT if the view’s resolved
+                layoutDirection is LTR, and ALIGN_RIGHT otherwise. -->
+            <enum name="viewStart" value="5" />
+            <!-- Align to the end of the view, which is ALIGN_RIGHT if the view’s resolved
+                layoutDirection is LTR, and ALIGN_LEFT otherwise -->
+            <enum name="viewEnd" value="6" />
+        </attr>
+
+        <!-- Controls how this View is important for accessibility which is if it fires
+             accessibility events and if it is reported to accessibility services that
+             query the screen. Note: While not recommended, an accessibility service may
+             decide to ignore this attribute and operate on all views in the view tree. -->
+        <attr name="importantForAccessibility" format="integer">
+            <!-- The system determines whether the view is important for accessibility - default
+                 (recommended). -->
+            <enum name="auto" value="0" />
+            <!-- The view is important for accessibility. -->
+            <enum name="yes" value="1" />
+            <!-- The view is not important for accessibility. -->
+            <enum name="no" value="2" />
+        </attr>
+
+        <!-- @hide Controls whether this view can take accessibility focus. -->
+        <attr name="accessibilityFocusable" format="integer">
+            <!-- The system determines whether the view can take accessibility focus - default
+                 (recommended).
+                 <p>
+                 Such a view is consideted by the focus search if it is:
+                 <ul>
+                 <li>
+                 Important for accessibility and actionable (clickable, long clickable, focusable)
+                 </li>
+                 <li>
+                 Important for accessibility, not actionable (clickable, long clickable, focusable),
+                 and does not have an actionable predecessor.
+                 </li>
+                 </ul>
+                 An accessibility srvice can request putting accessibility focus on such a view.
+                 </p> -->
+            <enum name="auto" value="0" />
+            <!-- The view can take accessibility focus.
+                 <p>
+                 A view that can take accessibility focus is always considered during focus
+                 search and an accessibility service can request putting accessibility focus
+                 on it.
+                 </p> -->
+            <enum name="yes" value="1" />
+            <!-- The view can not take accessibility focus.
+                 <p>
+                 A view that can not take accessibility focus is never considered during focus
+                 search and an accessibility service can not request putting accessibility focus
+                 on it.
+                 </p> -->
+            <enum name="no" value="2" />
+        </attr>
+
     </declare-styleable>
 
     <!-- Attributes that can be used with a {@link android.view.ViewGroup} or any
@@ -2387,6 +2508,10 @@
         <attr name="accessibilityFlags">
             <!-- Has flag {@link android.accessibilityservice.AccessibilityServiceInfo#DEFAULT} -->
             <flag name="flagDefault" value="0x00000001" />
+            <!-- Has flag {@link android.accessibilityservice.AccessibilityServiceInfo#FLAG_INCLUDE_NOT_IMPORTANT_VIEWS} -->
+            <flag name="flagIncludeNotImportantViews" value="0x00000002" />
+            <!-- Has flag {@link android.accessibilityservice.AccessibilityServiceInfo#FLAG_REQUEST_TOUCH_EXPLORATION_MODE} -->
+            <flag name="flagRequestTouchExplorationMode" value="0x00000004" />
         </attr>
         <!-- Component name of an activity that allows the user to modify
              the settings for this service. This setting cannot be changed at runtime. -->
@@ -2834,7 +2959,8 @@
         <attr name="minHeight" format="dimension" />
         <attr name="maxHeight" />
         <attr name="interpolator" format="reference" />
-        <!-- Timeout between frames of animation in milliseconds -->
+        <!-- Timeout between frames of animation in milliseconds
+             {@deprecated Not used by the framework.} -->
         <attr name="animationResolution" format="integer" />
     </declare-styleable>
 
@@ -2920,6 +3046,8 @@
         <attr name="textStyle" />
         <!-- Typeface (normal, sans, serif, monospace) for the text. -->
         <attr name="typeface" />
+        <!-- Font family (named by string) for the text. -->
+        <attr name="fontFamily" />
         <!-- Color of the text selection highlight. -->
         <attr name="textColorHighlight" />
         <!-- Color of the hint text. -->
@@ -2965,11 +3093,16 @@
         <attr name="typeface" />
         <!-- Style (bold, italic, bolditalic) for the text. -->
         <attr name="textStyle" />
+        <!-- Font family (named by string) for the text. -->
+        <attr name="fontFamily" />
         <!-- Text color for links. -->
         <attr name="textColorLink" />
         <!-- Makes the cursor visible (the default) or invisible. -->
         <attr name="cursorVisible" format="boolean" />
-        <!-- Makes the TextView be at most this many lines tall. -->
+        <!-- Makes the TextView be at most this many lines tall.
+
+        When used on an editable text, the <code>inputType</code> attribute's value must be
+        combined with the <code>textMultiLine</code> flag for the maxLines attribute to apply. -->
         <attr name="maxLines" format="integer" min="0" />
         <!-- Makes the TextView be at most this many pixels tall. -->
         <attr name="maxHeight" />
@@ -2979,7 +3112,10 @@
              You could get the same effect by specifying this number in the
              layout parameters. -->
         <attr name="height" format="dimension" />
-        <!-- Makes the TextView be at least this many lines tall. -->
+        <!-- Makes the TextView be at least this many lines tall.
+
+        When used on an editable text, the <code>inputType</code> attribute's value must be
+        combined with the <code>textMultiLine</code> flag for the minLines attribute to apply. -->
         <attr name="minLines" format="integer" min="0" />
         <!-- Makes the TextView be at least this many pixels tall. -->
         <attr name="minHeight" />
@@ -3010,21 +3146,24 @@
         <!-- Constrains the text to a single horizontally scrolling line
              instead of letting it wrap onto multiple lines, and advances
              focus instead of inserting a newline when you press the
-             enter key.  Note: for editable text views, it is better
-             to control this using the textMultiLine flag in the inputType
-             attribute.  (If both singleLine and inputType are supplied,
-             the inputType flags will override the value of singleLine.)
-             {@deprecated This attribute is deprecated and is replaced by the textMultiLine flag
-             in the inputType attribute.  Use caution when altering existing layouts, as the
-             default value of singeLine is false (multi-line mode), but if you specify any
-             value for inputType, the default is single-line mode.  (If both singleLine and
-             inputType attributes are found,  the inputType flags will override the value of
-             singleLine.) } -->
+             enter key.
+
+             The default value is false (multi-line wrapped text mode) for non-editable text, but if
+             you specify any value for inputType, the default is true (single-line input field mode).
+
+             {@deprecated This attribute is deprecated. Use <code>maxLines</code> instead to change
+             the layout of a static text, and use the <code>textMultiLine</code> flag in the
+             inputType attribute instead for editable text views (if both singleLine and inputType
+             are supplied, the inputType flags will override the value of singleLine). } -->
         <attr name="singleLine" format="boolean" />
-        <!-- Specifies whether the TextView is enabled or not. {@deprecated Use state_enabled instead}. -->
+        <!-- Specifies whether the widget is enabled. The interpretation of the enabled state varies by subclass.
+             For example, a non-enabled EditText prevents the user from editing the contained text, and
+             a non-enabled Button prevents the user from tapping the button.
+             The appearance of enabled and non-enabled widgets may differ, if the drawables referenced
+             from evaluating state_enabled differ. -->
         <attr name="enabled" format="boolean" />
         <!-- If the text is selectable, select it all when the view takes
-             focus instead of moving the cursor to the start or end. -->
+             focus. -->
         <attr name="selectAllOnFocus" format="boolean" />
         <!-- Leave enough room for ascenders and descenders instead of
              using the font ascent and descent strictly.  (Normally true). -->
@@ -3052,7 +3191,7 @@
             <!-- Input is numeric. -->
             <flag name="integer" value="0x01" />
             <!-- Input is numeric, with sign allowed. -->
-            <flag name="signed" value="0x003" />
+            <flag name="signed" value="0x03" />
             <!-- Input is numeric, with decimals allowed. -->
             <flag name="decimal" value="0x05" />
         </attr>
@@ -3341,9 +3480,13 @@
     </declare-styleable>
 
     <declare-styleable name="DatePicker">
-        <!-- The first year (inclusive), for example "1940". -->
+        <!-- The first year (inclusive), for example "1940".
+             {@deprecated Use minDate instead.}
+         -->
         <attr name="startYear" format="integer" />
-        <!-- The last year (inclusive), for example "2010". -->
+        <!-- The last year (inclusive), for example "2010".
+             {@deprecated Use maxDate instead.}
+         -->
         <attr name="endYear" format="integer" />
         <!-- Whether the spinners are shown. -->
         <attr name="spinnersShown" format="boolean" />
@@ -3353,8 +3496,8 @@
         <attr name="minDate" format="string" />
         <!-- The minimal date shown by this calendar view in mm/dd/yyyy format. -->
         <attr name="maxDate" format="string" />
-        <!-- @hide The layout of the time picker. -->
-        <attr name="layout" />
+        <!-- @hide The layout of the date picker. -->
+        <attr name="internalLayout" format="reference"  />
     </declare-styleable>
 
     <declare-styleable name="TwoLineListItem">
@@ -3558,15 +3701,15 @@
         <attr name="shownWeekCount" format="integer"/>
         <!-- The background color for the selected week. -->
         <attr name="selectedWeekBackgroundColor" format="color|reference" />
-        <!-- The color for the dates of the selected month. -->
+        <!-- The color for the dates of the focused month. -->
         <attr name="focusedMonthDateColor" format="color|reference" />
         <!-- The color for the dates of an unfocused month. -->
         <attr name="unfocusedMonthDateColor" format="color|reference" />
         <!-- The color for the week numbers. -->
         <attr name="weekNumberColor" format="color|reference" />
-        <!-- The color for the sepatator line between weeks. -->
+        <!-- The color for the separator line between weeks. -->
         <attr name="weekSeparatorLineColor" format="color|reference" />
-        <!-- Drawable for the vertical bar shown at the beggining and at the end of a selected date. -->
+        <!-- Drawable for the vertical bar shown at the beginning and at the end of the selected date. -->
         <attr name="selectedDateVerticalBar" format="reference" />
         <!-- The text appearance for the week day abbreviation of the calendar header. -->
         <attr name="weekDayTextAppearance" format="reference" />
@@ -3577,27 +3720,29 @@
     <declare-styleable name="NumberPicker">
         <!-- @hide Color for the solid color background if such for optimized rendering. -->
         <attr name="solidColor" format="color|reference" />
-        <!-- @hide Whether the number picker supports fligning. -->
-        <attr name="flingable" format="boolean" />
         <!-- @hide The divider for making the selection area. -->
         <attr name="selectionDivider" format="reference" />
         <!-- @hide The height of the selection divider. -->
         <attr name="selectionDividerHeight" format="dimension" />
+        <!-- @hide The distance between the two selection dividers. -->
+        <attr name="selectionDividersDistance" format="dimension" />
         <!-- @hide The min height of the NumberPicker. -->
-        <attr name="minHeight" />
+        <attr name="internalMinHeight" format="dimension" />
         <!-- @hide The max height of the NumberPicker. -->
-        <attr name="maxHeight" />
+        <attr name="internalMaxHeight" format="dimension" />
         <!-- @hide The min width of the NumberPicker. -->
-        <attr name="minWidth" />
+        <attr name="internalMinWidth" format="dimension" />
         <!-- @hide The max width of the NumberPicker. -->
-        <attr name="maxWidth" />
-        <!-- @hide The max width of the NumberPicker. -->
-        <attr name="maxWidth" />
+        <attr name="internalMaxWidth" format="dimension" />
+        <!-- @hide The layout of the number picker. -->
+        <attr name="internalLayout" />
+        <!-- @hide The drawable for pressed virtual (increment/decrement) buttons. -->
+        <attr name="virtualButtonPressedDrawable" format="reference"/>
     </declare-styleable>
 
     <declare-styleable name="TimePicker">
         <!-- @hide The layout of the time picker. -->
-        <attr name="layout" />
+        <attr name="internalLayout" />
     </declare-styleable>
 
     <!-- ========================= -->
@@ -4247,6 +4392,7 @@
          <li>"state_hovered"
          <li>"state_drag_can_accept"
          <li>"state_drag_hovered"
+         <li>"state_accessibility_focused"
          </ul>  -->
     <declare-styleable name="DrawableStates">
         <!-- State value for {@link android.graphics.drawable.StateListDrawable StateListDrawable},
@@ -4307,6 +4453,9 @@
              indicating that a drag operation (for which the Drawable's view is a valid recipient)
              is currently positioned over the Drawable. -->
         <attr name="state_drag_hovered" format="boolean" />
+        <!-- State for {@link android.graphics.drawable.StateListDrawable StateListDrawable}
+             indicating that a View has accessibility focus. -->
+        <attr name="state_accessibility_focused" format="boolean" />
     </declare-styleable>
     <declare-styleable name="ViewDrawableStates">
         <attr name="state_pressed" />
@@ -5234,6 +5383,51 @@
     </declare-styleable>
 
     <!-- =============================== -->
+    <!-- GlowPadView class attributes -->
+    <!-- =============================== -->
+    <eat-comment />
+    <declare-styleable name="GlowPadView">
+        <!-- Reference to an array resource that be shown as targets around a circle. -->
+        <attr name="targetDrawables"/>
+
+        <!-- Reference to an array resource that be used as description for the targets around the circle. -->
+        <attr name="targetDescriptions"/>
+
+        <!-- Reference to an array resource that be used to announce the directions with targets around the circle. -->
+        <attr name="directionDescriptions"/>
+
+        <!-- Sets a drawable as the center. -->
+        <attr name="handleDrawable"/>
+
+        <!-- Drawable to use for wave ripple animation. -->
+        <attr name="outerRingDrawable" format="reference"/>
+
+        <!-- Drawble used for drawing points -->
+        <attr name="pointDrawable" format="reference" />
+
+        <!-- Inner radius of glow area. -->
+        <attr name="innerRadius"/>
+
+        <!-- Outer radius of glow area. Target icons will be drawn on this circle. -->
+        <attr name="outerRadius"/>
+
+        <!-- Radius of glow under finger. -->
+        <attr name="glowRadius" format="dimension" />
+
+        <!-- Tactile feedback duration for actions. Set to '0' for no vibration. -->
+        <attr name="vibrationDuration"/>
+
+        <!-- How close we need to be before snapping to a target. -->
+        <attr name="snapMargin"/>
+
+        <!-- Number of waves/chevrons to show in animation. -->
+        <attr name="feedbackCount"/>
+
+        <!-- Used when the handle shouldn't wait to be hit before following the finger -->
+        <attr name="alwaysTrackFinger"/>
+    </declare-styleable>
+
+    <!-- =============================== -->
     <!-- MultiWaveView class attributes -->
     <!-- =============================== -->
     <eat-comment />
@@ -5250,26 +5444,14 @@
         <!-- Sets a drawable as the drag center. -->
         <attr name="handleDrawable" format="reference" />
 
-        <!-- Drawable to use for chevron animation on the left. May be null. -->
-        <attr name="leftChevronDrawable" format="reference" />
-
-        <!-- Drawable to use for chevron animation on the right. May be null. -->
-        <attr name="rightChevronDrawable" format="reference" />
-
-        <!-- Drawable to use for chevron animation on the top. May be null. -->
-        <attr name="topChevronDrawable" format="reference" />
-
-        <!-- Drawable to use for chevron animation on the bottom. May be null. -->
-        <attr name="bottomChevronDrawable" format="reference" />
+        <!-- Drawables to use for chevron animations. May be null. -->
+        <attr name="chevronDrawables" format="reference"/>
 
         <!-- Drawable to use for wave ripple animation. -->
         <attr name="waveDrawable" format="reference" />
 
         <!-- Outer radius of target circle. Icons will be drawn on this circle. -->
         <attr name="outerRadius" format="dimension" />
-
-        <!-- Size of target radius. Points within this distance of target center is a "hit". -->
-        <attr name="hitRadius" format="dimension" />
 
         <!-- Tactile feedback duration for actions. Set to '0' for no vibration. -->
         <attr name="vibrationDuration" format="integer"/>
@@ -5280,12 +5462,24 @@
         <!-- Number of waves/chevrons to show in animation. -->
         <attr name="feedbackCount" format="integer" />
 
-        <!-- Used to shift center of pattern vertically. -->
-        <attr name="verticalOffset" format="dimension" />
-
-        <!-- Used to shift center of pattern horizontally. -->
-        <attr name="horizontalOffset" format="dimension" />
+        <!-- Used when the handle shouldn't wait to be hit before following the finger -->
+        <attr name="alwaysTrackFinger" format="boolean" />
     </declare-styleable>
+
+    <!-- =============================== -->
+    <!-- SizeAdaptiveLayout class attributes -->
+    <!-- =============================== -->
+    <eat-comment />
+    <declare-styleable name="SizeAdaptiveLayout_Layout">
+      <!-- The maximum valid height for this item. -->
+      <attr name="layout_maxHeight" format="dimension">
+        <!-- Indicates that the view may be resized arbitrarily large. -->
+        <enum name="unbounded" value="-1" />
+      </attr>
+      <!-- The minimum valid height for this item. -->
+      <attr name="layout_minHeight" format="dimension" />
+    </declare-styleable>
+    <declare-styleable name="SizeAdaptiveLayout" />
 
     <!-- =============================== -->
     <!-- LockPatternView class attributes -->
@@ -5482,6 +5676,44 @@
          entry. -->
     <declare-styleable name="TextToSpeechEngine">
         <attr name="settingsActivity" />
+    </declare-styleable>
+
+    <!-- Use <code>keyboard-layouts</code> as the root tag of the XML resource that
+         describes a collection of keyboard layouts provided by an application.
+         Each keyboard layout is declared by a <code>keyboard-layout</code> tag
+         with these attributes.
+
+         The XML resource that contains the keyboard layouts must be referenced from its
+         {@link android.hardware.input.InputManager#META_DATA_KEYBOARD_LAYOUTS}
+         meta-data entry used with broadcast receivers for
+         {@link android.hardware.input.InputManager#ACTION_QUERY_KEYBOARD_LAYOUTS}. -->
+    <declare-styleable name="KeyboardLayout">
+        <!-- The name of the keyboard layout, must be unique in the receiver. -->
+        <attr name="name" />
+        <!-- The display label of the keyboard layout. -->
+        <attr name="label" />
+        <!-- The key character map file resource. -->
+        <attr name="keyboardLayout" format="reference" />
+    </declare-styleable>
+
+    <declare-styleable name="MediaRouteButton">
+        <!-- This drawable is a state list where the "activated" state
+             indicates active media routing. Non-activated indicates
+             that media is playing to the local device only.
+             @hide -->
+        <attr name="externalRouteEnabledDrawable" format="reference" />
+
+        <!-- The types of media routes the button and its resulting
+             chooser will filter by. -->
+        <attr name="mediaRouteTypes" format="integer">
+            <!-- Allow selection of live audio routes. -->
+            <enum name="liveAudio" value="0x1" />
+            <!-- Allow selection of user (app-specified) routes. -->
+            <enum name="user" value="0x800000" />
+        </attr>
+
+        <attr name="minWidth" />
+        <attr name="minHeight" />
     </declare-styleable>
 
 </resources>

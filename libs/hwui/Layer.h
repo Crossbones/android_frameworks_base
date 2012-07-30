@@ -37,6 +37,10 @@ namespace uirenderer {
 // Layers
 ///////////////////////////////////////////////////////////////////////////////
 
+// Forward declarations
+class OpenGLRenderer;
+class DisplayList;
+
 /**
  * A layer has dimensions and is backed by an OpenGL texture or FBO.
  */
@@ -51,6 +55,9 @@ struct Layer {
         texture.width = layerWidth;
         texture.height = layerHeight;
         colorFilter = NULL;
+        deferredUpdateScheduled = false;
+        renderer = NULL;
+        displayList = NULL;
     }
 
     ~Layer() {
@@ -75,6 +82,15 @@ struct Layer {
                regionRect.right * texX, (height - regionRect.bottom) * texY);
 
         regionRect.translate(layer.left, layer.top);
+    }
+
+    void updateDeferred(OpenGLRenderer* renderer, DisplayList* displayList,
+            int left, int top, int right, int bottom) {
+        this->renderer = renderer;
+        this->displayList = displayList;
+        const Rect r(left, top, right, bottom);
+        dirtyRect.unionWith(r);
+        deferredUpdateScheduled = true;
     }
 
     inline uint32_t getWidth() {
@@ -147,12 +163,12 @@ struct Layer {
         this->renderTarget = renderTarget;
     }
 
-    void setWrap(GLenum wrapS, GLenum wrapT, bool bindTexture = false, bool force = false) {
-        texture.setWrap(wrapS, wrapT, bindTexture, force, renderTarget);
+    void setWrap(GLenum wrap, bool bindTexture = false, bool force = false) {
+        texture.setWrap(wrap, bindTexture, force, renderTarget);
     }
 
-    void setFilter(GLenum min, GLenum mag, bool bindTexture = false, bool force = false) {
-        texture.setFilter(min, mag,bindTexture, force, renderTarget);
+    void setFilter(GLenum filter, bool bindTexture = false, bool force = false) {
+        texture.setFilter(filter, bindTexture, force, renderTarget);
     }
 
     inline bool isCacheable() {
@@ -233,6 +249,14 @@ struct Layer {
     TextureVertex* mesh;
     uint16_t* meshIndices;
     GLsizei meshElementCount;
+
+    /**
+     * Used for deferred updates.
+     */
+    bool deferredUpdateScheduled;
+    OpenGLRenderer* renderer;
+    DisplayList* displayList;
+    Rect dirtyRect;
 
 private:
     /**

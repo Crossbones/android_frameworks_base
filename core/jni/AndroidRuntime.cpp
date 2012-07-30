@@ -76,6 +76,7 @@ extern int register_android_opengl_jni_GLES20(JNIEnv* env);
 
 extern int register_android_hardware_Camera(JNIEnv *env);
 extern int register_android_hardware_SensorManager(JNIEnv *env);
+extern int register_android_hardware_SerialPort(JNIEnv *env);
 extern int register_android_hardware_UsbDevice(JNIEnv *env);
 extern int register_android_hardware_UsbDeviceConnection(JNIEnv *env);
 extern int register_android_hardware_UsbRequest(JNIEnv *env);
@@ -115,29 +116,27 @@ extern int register_android_graphics_SurfaceTexture(JNIEnv* env);
 extern int register_android_graphics_Xfermode(JNIEnv* env);
 extern int register_android_graphics_PixelFormat(JNIEnv* env);
 extern int register_android_view_Display(JNIEnv* env);
+extern int register_android_view_DisplayEventReceiver(JNIEnv* env);
+extern int register_android_view_GLES20DisplayList(JNIEnv* env);
 extern int register_android_view_GLES20Canvas(JNIEnv* env);
 extern int register_android_view_HardwareRenderer(JNIEnv* env);
 extern int register_android_view_Surface(JNIEnv* env);
 extern int register_android_view_TextureView(JNIEnv* env);
 extern int register_android_database_CursorWindow(JNIEnv* env);
-extern int register_android_database_SQLiteCompiledSql(JNIEnv* env);
-extern int register_android_database_SQLiteDatabase(JNIEnv* env);
+extern int register_android_database_SQLiteConnection(JNIEnv* env);
+extern int register_android_database_SQLiteGlobal(JNIEnv* env);
 extern int register_android_database_SQLiteDebug(JNIEnv* env);
-extern int register_android_database_SQLiteProgram(JNIEnv* env);
-extern int register_android_database_SQLiteQuery(JNIEnv* env);
-extern int register_android_database_SQLiteStatement(JNIEnv* env);
 extern int register_android_debug_JNITest(JNIEnv* env);
 extern int register_android_nio_utils(JNIEnv* env);
-extern int register_android_nfc_NdefMessage(JNIEnv *env);
-extern int register_android_nfc_NdefRecord(JNIEnv *env);
 extern int register_android_text_format_Time(JNIEnv* env);
 extern int register_android_os_Debug(JNIEnv* env);
 extern int register_android_os_MessageQueue(JNIEnv* env);
+extern int register_android_os_Parcel(JNIEnv* env);
 extern int register_android_os_ParcelFileDescriptor(JNIEnv *env);
-extern int register_android_os_Power(JNIEnv *env);
 extern int register_android_os_StatFs(JNIEnv *env);
 extern int register_android_os_SystemProperties(JNIEnv *env);
 extern int register_android_os_SystemClock(JNIEnv* env);
+extern int register_android_os_Trace(JNIEnv* env);
 extern int register_android_os_FileObserver(JNIEnv *env);
 extern int register_android_os_FileUtils(JNIEnv *env);
 extern int register_android_os_UEventObserver(JNIEnv* env);
@@ -148,7 +147,6 @@ extern int register_android_net_TrafficStats(JNIEnv* env);
 extern int register_android_net_wifi_WifiManager(JNIEnv* env);
 extern int register_android_text_AndroidCharacter(JNIEnv *env);
 extern int register_android_text_AndroidBidi(JNIEnv *env);
-extern int register_android_text_KeyCharacterMap(JNIEnv *env);
 extern int register_android_opengl_classes(JNIEnv *env);
 extern int register_android_bluetooth_HeadsetBase(JNIEnv* env);
 extern int register_android_bluetooth_BluetoothAudioGateway(JNIEnv* env);
@@ -168,7 +166,9 @@ extern int register_android_app_backup_FullBackup(JNIEnv *env);
 extern int register_android_app_ActivityThread(JNIEnv *env);
 extern int register_android_app_NativeActivity(JNIEnv *env);
 extern int register_android_view_InputChannel(JNIEnv* env);
-extern int register_android_view_InputQueue(JNIEnv* env);
+extern int register_android_view_InputDevice(JNIEnv* env);
+extern int register_android_view_InputEventReceiver(JNIEnv* env);
+extern int register_android_view_KeyCharacterMap(JNIEnv *env);
 extern int register_android_view_KeyEvent(JNIEnv* env);
 extern int register_android_view_MotionEvent(JNIEnv* env);
 extern int register_android_view_PointerIcon(JNIEnv* env);
@@ -189,49 +189,32 @@ static void doThrow(JNIEnv* env, const char* exc, const char* msg = NULL)
 /*
  * Code written in the Java Programming Language calls here from main().
  */
-static void com_android_internal_os_RuntimeInit_finishInit(JNIEnv* env, jobject clazz)
+static void com_android_internal_os_RuntimeInit_nativeFinishInit(JNIEnv* env, jobject clazz)
 {
     gCurRuntime->onStarted();
 }
 
-static void com_android_internal_os_RuntimeInit_zygoteInit(JNIEnv* env, jobject clazz)
+static void com_android_internal_os_RuntimeInit_nativeZygoteInit(JNIEnv* env, jobject clazz)
 {
     gCurRuntime->onZygoteInit();
 }
 
-static jint com_android_internal_os_RuntimeInit_isComputerOn(JNIEnv* env, jobject clazz)
+static void com_android_internal_os_RuntimeInit_nativeSetExitWithoutCleanup(JNIEnv* env,
+        jobject clazz, jboolean exitWithoutCleanup)
 {
-    return 1;
-}
-
-static void com_android_internal_os_RuntimeInit_turnComputerOn(JNIEnv* env, jobject clazz)
-{
-}
-
-static jint com_android_internal_os_RuntimeInit_getQwertyKeyboard(JNIEnv* env, jobject clazz)
-{
-    char* value = getenv("qwerty");
-    if (value != NULL && strcmp(value, "true") == 0) {
-        return 1;
-    }
-
-    return 0;
+    gCurRuntime->setExitWithoutCleanup(exitWithoutCleanup);
 }
 
 /*
  * JNI registration.
  */
 static JNINativeMethod gMethods[] = {
-    { "finishInit", "()V",
-        (void*) com_android_internal_os_RuntimeInit_finishInit },
-    { "zygoteInitNative", "()V",
-        (void*) com_android_internal_os_RuntimeInit_zygoteInit },
-    { "isComputerOn", "()I",
-        (void*) com_android_internal_os_RuntimeInit_isComputerOn },
-    { "turnComputerOn", "()V",
-        (void*) com_android_internal_os_RuntimeInit_turnComputerOn },
-    { "getQwertyKeyboard", "()I",
-        (void*) com_android_internal_os_RuntimeInit_getQwertyKeyboard },
+    { "nativeFinishInit", "()V",
+        (void*) com_android_internal_os_RuntimeInit_nativeFinishInit },
+    { "nativeZygoteInit", "()V",
+        (void*) com_android_internal_os_RuntimeInit_nativeZygoteInit },
+    { "nativeSetExitWithoutCleanup", "(Z)V",
+        (void*) com_android_internal_os_RuntimeInit_nativeSetExitWithoutCleanup },
 };
 
 int register_com_android_internal_os_RuntimeInit(JNIEnv* env)
@@ -245,7 +228,8 @@ int register_com_android_internal_os_RuntimeInit(JNIEnv* env)
 /*static*/ JavaVM* AndroidRuntime::mJavaVM = NULL;
 
 
-AndroidRuntime::AndroidRuntime()
+AndroidRuntime::AndroidRuntime() :
+        mExitWithoutCleanup(false)
 {
     SkGraphics::Init();
     // this sets our preference for 16bit images during decode
@@ -286,7 +270,7 @@ status_t AndroidRuntime::callMain(const char* className,
     JNIEnv* env;
     jmethodID methodId;
 
-    LOGD("Calling main entry %s", className);
+    ALOGD("Calling main entry %s", className);
 
     env = getJNIEnv();
     if (clazz == NULL || env == NULL) {
@@ -295,7 +279,7 @@ status_t AndroidRuntime::callMain(const char* className,
 
     methodId = env->GetStaticMethodID(clazz, "main", "([Ljava/lang/String;)V");
     if (methodId == NULL) {
-        LOGE("ERROR: could not find method %s.main(String[])\n", className);
+        ALOGE("ERROR: could not find method %s.main(String[])\n", className);
         return UNKNOWN_ERROR;
     }
 
@@ -323,8 +307,7 @@ status_t AndroidRuntime::callMain(const char* className,
  */
 static void runtime_exit(int code)
 {
-    gCurRuntime->onExit(code);
-    exit(code);
+    gCurRuntime->exit(code);
 }
 
 /*
@@ -397,7 +380,7 @@ static void blockSigpipe()
     sigemptyset(&mask);
     sigaddset(&mask, SIGPIPE);
     if (sigprocmask(SIG_BLOCK, &mask, NULL) != 0)
-        LOGW("WARNING: SIGPIPE not blocked\n");
+        ALOGW("WARNING: SIGPIPE not blocked\n");
 }
 
 /*
@@ -416,7 +399,7 @@ static void readLocale(char* language, char* region)
     }
     strncat(language, propLang, 2);
     strncat(region, propRegn, 2);
-    //LOGD("language=%s region=%s\n", language, region);
+    //ALOGD("language=%s region=%s\n", language, region);
 }
 
 /*
@@ -565,6 +548,10 @@ int AndroidRuntime::startVm(JavaVM** pJavaVM, JNIEnv** pEnv)
     opt.optionString = heapsizeOptsBuf;
     mOptions.add(opt);
 
+    // Increase the main thread's interpreter stack size for bug 6315322.
+    opt.optionString = "-XX:mainThreadStackSize=24K";
+    mOptions.add(opt);
+
     strcpy(heapgrowthlimitOptsBuf, "-XX:HeapGrowthLimit=");
     property_get("dalvik.vm.heapgrowthlimit", heapgrowthlimitOptsBuf+20, "");
     if (heapgrowthlimitOptsBuf[20] != '\0') {
@@ -629,7 +616,7 @@ int AndroidRuntime::startVm(JavaVM** pJavaVM, JNIEnv** pEnv)
         "-agentlib:jdwp=transport=dt_android_adb,suspend=n,server=y";
     mOptions.add(opt);
 
-    LOGD("CheckJNI is %s\n", checkJni ? "ON" : "OFF");
+    ALOGD("CheckJNI is %s\n", checkJni ? "ON" : "OFF");
     if (checkJni) {
         /* extended JNI checking */
         opt.optionString = "-Xcheck:jni";
@@ -704,15 +691,15 @@ int AndroidRuntime::startVm(JavaVM** pJavaVM, JNIEnv** pEnv)
         /* accept "all" to mean "all classes and packages" */
         if (strcmp(enableAssertBuf+4, "all") == 0)
             enableAssertBuf[3] = '\0';
-        LOGI("Assertions enabled: '%s'\n", enableAssertBuf);
+        ALOGI("Assertions enabled: '%s'\n", enableAssertBuf);
         opt.optionString = enableAssertBuf;
         mOptions.add(opt);
     } else {
-        LOGV("Assertions disabled\n");
+        ALOGV("Assertions disabled\n");
     }
 
     if (jniOptsBuf[10] != '\0') {
-        LOGI("JNI options: '%s'\n", jniOptsBuf);
+        ALOGI("JNI options: '%s'\n", jniOptsBuf);
         opt.optionString = jniOptsBuf;
         mOptions.add(opt);
     }
@@ -766,7 +753,7 @@ int AndroidRuntime::startVm(JavaVM** pJavaVM, JNIEnv** pEnv)
      * JNI calls.
      */
     if (JNI_CreateJavaVM(pJavaVM, pEnv, &initArgs) < 0) {
-        LOGE("JNI_CreateJavaVM failed\n");
+        ALOGE("JNI_CreateJavaVM failed\n");
         goto bail;
     }
 
@@ -798,7 +785,7 @@ char* AndroidRuntime::toSlashClassName(const char* className)
  */
 void AndroidRuntime::start(const char* className, const char* options)
 {
-    LOGD("\n>>>>>> AndroidRuntime START %s <<<<<<\n",
+    ALOGD("\n>>>>>> AndroidRuntime START %s <<<<<<\n",
             className != NULL ? className : "(unknown)");
 
     blockSigpipe();
@@ -825,7 +812,7 @@ void AndroidRuntime::start(const char* className, const char* options)
     }
 
     //const char* kernelHack = getenv("LD_ASSUME_KERNEL");
-    //LOGD("Found LD_ASSUME_KERNEL='%s'\n", kernelHack);
+    //ALOGD("Found LD_ASSUME_KERNEL='%s'\n", kernelHack);
 
     /* start the virtual machine */
     JNIEnv* env;
@@ -838,7 +825,7 @@ void AndroidRuntime::start(const char* className, const char* options)
      * Register android functions.
      */
     if (startReg(env) < 0) {
-        LOGE("Unable to register all android natives\n");
+        ALOGE("Unable to register all android natives\n");
         return;
     }
 
@@ -869,13 +856,13 @@ void AndroidRuntime::start(const char* className, const char* options)
     char* slashClassName = toSlashClassName(className);
     jclass startClass = env->FindClass(slashClassName);
     if (startClass == NULL) {
-        LOGE("JavaVM unable to locate class '%s'\n", slashClassName);
+        ALOGE("JavaVM unable to locate class '%s'\n", slashClassName);
         /* keep going */
     } else {
         jmethodID startMeth = env->GetStaticMethodID(startClass, "main",
             "([Ljava/lang/String;)V");
         if (startMeth == NULL) {
-            LOGE("JavaVM unable to find main() in '%s'\n", className);
+            ALOGE("JavaVM unable to find main() in '%s'\n", className);
             /* keep going */
         } else {
             env->CallStaticVoidMethod(startClass, startMeth, strArray);
@@ -888,17 +875,23 @@ void AndroidRuntime::start(const char* className, const char* options)
     }
     free(slashClassName);
 
-    LOGD("Shutting down VM\n");
+    ALOGD("Shutting down VM\n");
     if (mJavaVM->DetachCurrentThread() != JNI_OK)
-        LOGW("Warning: unable to detach main thread\n");
+        ALOGW("Warning: unable to detach main thread\n");
     if (mJavaVM->DestroyJavaVM() != 0)
-        LOGW("Warning: VM did not shut down cleanly\n");
+        ALOGW("Warning: VM did not shut down cleanly\n");
 }
 
-void AndroidRuntime::onExit(int code)
+void AndroidRuntime::exit(int code)
 {
-    LOGV("AndroidRuntime onExit calling exit(%d)", code);
-    exit(code);
+    if (mExitWithoutCleanup) {
+        ALOGI("VM exiting with result code %d, cleanup skipped.", code);
+        ::_exit(code);
+    } else {
+        ALOGI("VM exiting with result code %d.", code);
+        onExit(code);
+        ::exit(code);
+    }
 }
 
 void AndroidRuntime::onVmCreated(JNIEnv* env)
@@ -943,7 +936,7 @@ static int javaAttachThread(const char* threadName, JNIEnv** pEnv)
 
     result = vm->AttachCurrentThread(pEnv, (void*) &args);
     if (result != JNI_OK)
-        LOGI("NOTE: attach of thread '%s' failed\n", threadName);
+        ALOGI("NOTE: attach of thread '%s' failed\n", threadName);
 
     return result;
 }
@@ -961,7 +954,7 @@ static int javaDetachThread(void)
 
     result = vm->DetachCurrentThread();
     if (result != JNI_OK)
-        LOGE("ERROR: thread detach failed\n");
+        ALOGE("ERROR: thread detach failed\n");
     return result;
 }
 
@@ -1064,7 +1057,7 @@ static int register_jni_procs(const RegJNIRec array[], size_t count, JNIEnv* env
     for (size_t i = 0; i < count; i++) {
         if (array[i].mProc(env) < 0) {
 #ifndef NDEBUG
-            LOGD("----------!!! %s failed to load\n", array[i].mName);
+            ALOGD("----------!!! %s failed to load\n", array[i].mName);
 #endif
             return -1;
         }
@@ -1093,14 +1086,18 @@ static const RegJNIRec gRegJNI[] = {
     REG_JNI(register_android_emoji_EmojiFactory),
     REG_JNI(register_android_text_AndroidCharacter),
     REG_JNI(register_android_text_AndroidBidi),
-    REG_JNI(register_android_text_KeyCharacterMap),
+    REG_JNI(register_android_view_InputDevice),
+    REG_JNI(register_android_view_KeyCharacterMap),
     REG_JNI(register_android_os_Process),
     REG_JNI(register_android_os_SystemProperties),
     REG_JNI(register_android_os_Binder),
+    REG_JNI(register_android_os_Parcel),
     REG_JNI(register_android_view_Display),
+    REG_JNI(register_android_view_DisplayEventReceiver),
     REG_JNI(register_android_nio_utils),
     REG_JNI(register_android_graphics_PixelFormat),
     REG_JNI(register_android_graphics_Graphics),
+    REG_JNI(register_android_view_GLES20DisplayList),
     REG_JNI(register_android_view_GLES20Canvas),
     REG_JNI(register_android_view_HardwareRenderer),
     REG_JNI(register_android_view_Surface),
@@ -1141,30 +1138,26 @@ static const RegJNIRec gRegJNI[] = {
     REG_JNI(register_android_graphics_YuvImage),
 
     REG_JNI(register_android_database_CursorWindow),
-    REG_JNI(register_android_database_SQLiteCompiledSql),
-    REG_JNI(register_android_database_SQLiteDatabase),
+    REG_JNI(register_android_database_SQLiteConnection),
+    REG_JNI(register_android_database_SQLiteGlobal),
     REG_JNI(register_android_database_SQLiteDebug),
-    REG_JNI(register_android_database_SQLiteProgram),
-    REG_JNI(register_android_database_SQLiteQuery),
-    REG_JNI(register_android_database_SQLiteStatement),
     REG_JNI(register_android_os_Debug),
     REG_JNI(register_android_os_FileObserver),
     REG_JNI(register_android_os_FileUtils),
     REG_JNI(register_android_os_MessageQueue),
     REG_JNI(register_android_os_ParcelFileDescriptor),
-    REG_JNI(register_android_os_Power),
     REG_JNI(register_android_os_StatFs),
+    REG_JNI(register_android_os_Trace),
     REG_JNI(register_android_os_UEventObserver),
     REG_JNI(register_android_net_LocalSocketImpl),
     REG_JNI(register_android_net_NetworkUtils),
     REG_JNI(register_android_net_TrafficStats),
     REG_JNI(register_android_net_wifi_WifiManager),
-    REG_JNI(register_android_nfc_NdefMessage),
-    REG_JNI(register_android_nfc_NdefRecord),
     REG_JNI(register_android_os_MemoryFile),
     REG_JNI(register_com_android_internal_os_ZygoteInit),
     REG_JNI(register_android_hardware_Camera),
     REG_JNI(register_android_hardware_SensorManager),
+    REG_JNI(register_android_hardware_SerialPort),
     REG_JNI(register_android_hardware_UsbDevice),
     REG_JNI(register_android_hardware_UsbDeviceConnection),
     REG_JNI(register_android_hardware_UsbRequest),
@@ -1192,7 +1185,7 @@ static const RegJNIRec gRegJNI[] = {
     REG_JNI(register_android_app_ActivityThread),
     REG_JNI(register_android_app_NativeActivity),
     REG_JNI(register_android_view_InputChannel),
-    REG_JNI(register_android_view_InputQueue),
+    REG_JNI(register_android_view_InputEventReceiver),
     REG_JNI(register_android_view_KeyEvent),
     REG_JNI(register_android_view_MotionEvent),
     REG_JNI(register_android_view_PointerIcon),
@@ -1217,7 +1210,7 @@ static const RegJNIRec gRegJNI[] = {
      */
     androidSetCreateThreadFunc((android_create_thread_fn) javaCreateThreadEtc);
 
-    LOGV("--- registering native functions ---\n");
+    ALOGV("--- registering native functions ---\n");
 
     /*
      * Every "register" function calls one or more things that return

@@ -25,80 +25,107 @@ namespace uirenderer {
 // Base program
 ///////////////////////////////////////////////////////////////////////////////
 
-Program::Program(const char* vertex, const char* fragment) {
+// TODO: Program instance should be created from a factory method
+Program::Program(const ProgramDescription& description, const char* vertex, const char* fragment) {
     mInitialized = false;
+    mHasColorUniform = false;
+    mHasSampler = false;
+    mUse = false;
 
-    vertexShader = buildShader(vertex, GL_VERTEX_SHADER);
-    if (vertexShader) {
+    // No need to cache compiled shaders, rely instead on Android's
+    // persistent shaders cache
+    mVertexShader = buildShader(vertex, GL_VERTEX_SHADER);
+    if (mVertexShader) {
+        mFragmentShader = buildShader(fragment, GL_FRAGMENT_SHADER);
+        if (mFragmentShader) {
+            mProgramId = glCreateProgram();
 
-        fragmentShader = buildShader(fragment, GL_FRAGMENT_SHADER);
-        if (fragmentShader) {
+            glAttachShader(mProgramId, mVertexShader);
+            glAttachShader(mProgramId, mFragmentShader);
 
-            id = glCreateProgram();
-            glAttachShader(id, vertexShader);
-            glAttachShader(id, fragmentShader);
-            glLinkProgram(id);
+            position = bindAttrib("position", kBindingPosition);
+            if (description.hasTexture || description.hasExternalTexture) {
+                texCoords = bindAttrib("texCoords", kBindingTexCoords);
+            } else {
+                texCoords = -1;
+            }
+
+            glLinkProgram(mProgramId);
 
             GLint status;
-            glGetProgramiv(id, GL_LINK_STATUS, &status);
+            glGetProgramiv(mProgramId, GL_LINK_STATUS, &status);
             if (status != GL_TRUE) {
-                LOGE("Error while linking shaders:");
+                ALOGE("Error while linking shaders:");
                 GLint infoLen = 0;
-                glGetProgramiv(id, GL_INFO_LOG_LENGTH, &infoLen);
+                glGetProgramiv(mProgramId, GL_INFO_LOG_LENGTH, &infoLen);
                 if (infoLen > 1) {
                     GLchar log[infoLen];
-                    glGetProgramInfoLog(id, infoLen, 0, &log[0]);
-                    LOGE("%s", log);
+                    glGetProgramInfoLog(mProgramId, infoLen, 0, &log[0]);
+                    ALOGE("%s", log);
                 }
-                glDeleteShader(vertexShader);
-                glDeleteShader(fragmentShader);
-                glDeleteProgram(id);
+
+                glDetachShader(mProgramId, mVertexShader);
+                glDetachShader(mProgramId, mFragmentShader);
+
+                glDeleteShader(mVertexShader);
+                glDeleteShader(mFragmentShader);
+
+                glDeleteProgram(mProgramId);
             } else {
                 mInitialized = true;
             }
+        } else {
+            glDeleteShader(mVertexShader);
         }
     }
 
-    mUse = false;
-
     if (mInitialized) {
-        position = addAttrib("position");
         transform = addUniform("transform");
     }
 }
 
 Program::~Program() {
     if (mInitialized) {
-        glDeleteShader(vertexShader);
-        glDeleteShader(fragmentShader);
-        glDeleteProgram(id);
+        glDetachShader(mProgramId, mVertexShader);
+        glDetachShader(mProgramId, mFragmentShader);
+
+        glDeleteShader(mVertexShader);
+        glDeleteShader(mFragmentShader);
+
+        glDeleteProgram(mProgramId);
     }
 }
 
 int Program::addAttrib(const char* name) {
-    int slot = glGetAttribLocation(id, name);
-    attributes.add(name, slot);
+    int slot = glGetAttribLocation(mProgramId, name);
+    mAttributes.add(name, slot);
     return slot;
 }
 
+int Program::bindAttrib(const char* name, ShaderBindings bindingSlot) {
+    glBindAttribLocation(mProgramId, bindingSlot, name);
+    mAttributes.add(name, bindingSlot);
+    return bindingSlot;
+}
+
 int Program::getAttrib(const char* name) {
-    ssize_t index = attributes.indexOfKey(name);
+    ssize_t index = mAttributes.indexOfKey(name);
     if (index >= 0) {
-        return attributes.valueAt(index);
+        return mAttributes.valueAt(index);
     }
     return addAttrib(name);
 }
 
 int Program::addUniform(const char* name) {
-    int slot = glGetUniformLocation(id, name);
-    uniforms.add(name, slot);
+    int slot = glGetUniformLocation(mProgramId, name);
+    mUniforms.add(name, slot);
     return slot;
 }
 
 int Program::getUniform(const char* name) {
-    ssize_t index = uniforms.indexOfKey(name);
+    ssize_t index = mUniforms.indexOfKey(name);
     if (index >= 0) {
-        return uniforms.valueAt(index);
+        return mUniforms.valueAt(index);
     }
     return addUniform(name);
 }
@@ -115,7 +142,7 @@ GLuint Program::buildShader(const char* source, GLenum type) {
         // use a fixed size instead
         GLchar log[512];
         glGetShaderInfoLog(shader, sizeof(log), 0, &log[0]);
-        LOGE("Error while compiling shader: %s", log);
+        ALOGE("Error while compiling shader: %s", log);
         glDeleteShader(shader);
         return 0;
     }
@@ -127,10 +154,11 @@ void Program::set(const mat4& projectionMatrix, const mat4& modelViewMatrix,
         const mat4& transformMatrix, bool offset) {
     mat4 t(projectionMatrix);
     if (offset) {
-        // offset screenspace xy by an amount that compensates for typical precision issues
-        // in GPU hardware that tends to paint hor/vert lines in pixels shifted up and to the left.
-        // This offset value is based on an assumption that some hardware may use as little
-        // as 12.4 precision, so we offset by slightly more than 1/16.
+        // offset screenspace xy by an amount that compensates for typical precision
+        // issues in GPU hardware that tends to paint hor/vert lines in pixels shifted
+        // up and to the left.
+        // This offset value is based on an assumption that some hardware may use as
+        // little as 12.4 precision, so we offset by slightly more than 1/16.
         t.translate(.375, .375, 0);
     }
     t.multiply(transformMatrix);
@@ -140,20 +168,24 @@ void Program::set(const mat4& projectionMatrix, const mat4& modelViewMatrix,
 }
 
 void Program::setColor(const float r, const float g, const float b, const float a) {
-    glUniform4f(getUniform("color"), r, g, b, a);
+    if (!mHasColorUniform) {
+        mColorUniform = getUniform("color");
+        mHasColorUniform = true;
+    }
+    glUniform4f(mColorUniform, r, g, b, a);
 }
 
 void Program::use() {
-    glUseProgram(id);
+    glUseProgram(mProgramId);
+    if (texCoords >= 0 && !mHasSampler) {
+        glUniform1i(getUniform("sampler"), 0);
+        mHasSampler = true;
+    }
     mUse = true;
-
-    glEnableVertexAttribArray(position);
 }
 
 void Program::remove() {
     mUse = false;
-
-    glDisableVertexAttribArray(position);
 }
 
 }; // namespace uirenderer

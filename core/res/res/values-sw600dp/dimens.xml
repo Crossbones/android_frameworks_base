@@ -18,13 +18,10 @@
 */
 -->
 <resources>
-    <!-- Height of the status bar -->
-    <dimen name="status_bar_height">48dip</dimen>
-    <!-- Width and height of a single notification icon in the status bar -->
-    <dimen name="status_bar_icon_size">24dip</dimen>
-    <!-- Size of the giant number (unread count) in the notifications -->
-    <dimen name="status_bar_content_number_size">48sp</dimen>
-
+    <!-- The width that is used when creating thumbnails of applications. -->
+    <dimen name="thumbnail_width">200dp</dimen>
+    <!-- The height that is used when creating thumbnails of applications. -->
+    <dimen name="thumbnail_height">177dp</dimen>
     <!-- The maximum number of action buttons that should be permitted within
          an action bar/action mode. This will be used to determine how many
          showAsAction="ifRoom" items can fit. "always" items can override this. -->
@@ -48,25 +45,34 @@
     <!-- Size of lockscreen outerring on unsecure unlock LockScreen -->
     <dimen name="keyguard_lockscreen_outerring_diameter">364dp</dimen>
 
-    <!-- target placement radius for MultiWaveView -->
-    <dimen name="multiwaveview_target_placement_radius">182dip</dimen>
+    <!-- target placement radius for GlowPadView. Should be 1/2 of outerring diameter. -->
+    <dimen name="glowpadview_target_placement_radius">182dip</dimen>
 
     <!-- Size of status line font in LockScreen. -->
     <dimen name="keyguard_pattern_unlock_status_line_font_size">14sp</dimen>
 
-    <!-- Preference activity, vertical padding for the header list -->
-    <dimen name="preference_screen_header_vertical_padding">32dp</dimen>
-    <dimen name="preference_screen_side_margin">0dp</dimen>
-    <!-- Compensate for double margin : preference_screen_side_margin + 4 (frame background shadow) = -preference_screen_side_margin_negative -->
-    <dimen name="preference_screen_side_margin_negative">-4dp</dimen>
-
-    <!-- Default padding to apply to AppWidgetHostViews containing widgets targeting API level 14 and up. -->
-    <dimen name="default_app_widget_padding_left">12dp</dimen>
-    <dimen name="default_app_widget_padding_top">4dp</dimen>
-    <dimen name="default_app_widget_padding_right">12dp</dimen>
-    <dimen name="default_app_widget_padding_bottom">20dp</dimen>
-
     <!-- Minimum width for an action button in the menu area of an action bar -->
     <dimen name="action_button_min_width">64dip</dimen>
+
+    <!-- The platform's desired fixed width for a dialog along the major axis
+         (the screen is in landscape). This may be either a fraction or a dimension.-->
+    <item type="dimen" name="dialog_fixed_width_major">60%</item>
+    <!-- The platform's desired fixed width for a dialog along the minor axis
+         (the screen is in portrait). This may be either a fraction or a dimension.-->
+    <item type="dimen" name="dialog_fixed_width_minor">90%</item>
+    <!-- The platform's desired fixed height for a dialog along the major axis
+         (the screen is in portrait). This may be either a fraction or a dimension.-->
+    <item type="dimen" name="dialog_fixed_height_major">60%</item>
+    <!-- The platform's desired fixed height for a dialog along the minor axis
+         (the screen is in landscape). This may be either a fraction or a dimension.-->
+    <item type="dimen" name="dialog_fixed_height_minor">90%</item>
+
+    <!-- Height of the bottom navigation bar in portrait; on sw600dp devices
+         this is a bit taller -->
+    <dimen name="navigation_bar_height_portrait">56dp</dimen>
+
+    <!-- Preference fragment padding, sides -->
+    <dimen name="preference_fragment_padding_side">24dp</dimen>
+    <dimen name="preference_screen_header_padding_side">24dip</dimen>
 </resources>
 
