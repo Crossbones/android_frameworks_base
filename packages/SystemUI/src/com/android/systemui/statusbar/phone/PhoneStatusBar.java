@@ -2216,7 +2216,7 @@ public class PhoneStatusBar extends StatusBar {
             }
 
             QuickSettingsPopupWindow quickSettingsWindow = new QuickSettingsPopupWindow(v);
-            quickSettingsWindow.showLikePopDownMenu(-50,0);
+            quickSettingsWindow.showLikePopDownMenu(true, mQuickSettingsButton.getLeft());
         }
     };
 

@@ -164,6 +164,28 @@ public class QuickSettings {
 	}
 
 	/**
+
+	 * Displays like a popdown menu from the anchor view.
+	 * 
+	 * @param mid
+	 *            if true places menu in center of screen
+	 */
+
+	public void showLikePopDownMenu(boolean mid, int buttonLeft) {
+            if (mid) {
+		this.preShow();
+
+		this.window.setAnimationStyle(R.style.Animations_PopDownMenu);
+
+                int xOffset = (0 - buttonLeft);
+
+		this.window.showAsDropDown(this.anchor, xOffset, 0);
+            } else {
+		this.showLikePopDownMenu(0, 0);
+            }
+	}
+
+	/**
 	 * Displays like a QuickAction from the anchor view.
 	 */
 	public void showLikeQuickAction() {
