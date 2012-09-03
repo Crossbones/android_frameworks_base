@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
 ** Copyright 2012, The Android Open Source Project
+** Copyright 2012, Crossbones Software
 **
 ** Licensed under the Apache License, Version 2.0 (the "License"); 
 ** you may not use this file except in compliance with the License. 
@@ -51,12 +52,12 @@
         android:clickable="true"
         />
 
-    <ImageView android:id="@+id/settings_button"
+    <ImageView android:id="@+id/quick_settings_button"
         android:layout_width="48dp"
         android:layout_height="48dp"
         android:scaleType="center"
-        android:src="@drawable/ic_notify_quicksettings"
-        android:contentDescription="@string/accessibility_settings_button"
+        android:src="@drawable/ic_notify_menusettings"
+        android:contentDescription="@string/accessibility_quick_settings_button"
         />
 
     <Space

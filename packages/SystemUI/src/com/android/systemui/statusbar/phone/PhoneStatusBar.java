@@ -90,6 +90,8 @@ import com.android.systemui.statusbar.policy.LocationController;
 import com.android.systemui.statusbar.policy.OnSizeChangedListener;
 import com.android.systemui.statusbar.policy.NetworkController;
 import com.android.systemui.statusbar.policy.NotificationRowLayout;
+import com.android.systemui.statusbar.policy.QuickSettings;
+import com.android.systemui.statusbar.policy.QuickSettingsController;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
@@ -175,7 +177,7 @@ public class PhoneStatusBar extends BaseStatusBar {
 
     // top bar
     View mClearButton;
-    View mSettingsButton;
+    View mQuickSettingsButton;
     RotationToggle mRotationButton;
 
     // carrier/wifi label
@@ -239,6 +241,8 @@ public class PhoneStatusBar extends BaseStatusBar {
     int mSystemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE;
 
     DisplayMetrics mDisplayMetrics = new DisplayMetrics();
+
+    QuickSettingsController mQuickSettingsController;
 
     private int mNavigationIconHints = 0;
     private final Animator.AnimatorListener mMakeIconsInvisible = new AnimatorListenerAdapter() {
@@ -426,9 +430,9 @@ public class PhoneStatusBar extends BaseStatusBar {
         mClearButton.setVisibility(View.INVISIBLE);
         mClearButton.setEnabled(false);
         mDateView = (DateView)mStatusBarWindow.findViewById(R.id.date);
-        mSettingsButton = mStatusBarWindow.findViewById(R.id.settings_button);
-        mSettingsButton.setOnClickListener(mSettingsButtonListener);
         mRotationButton = (RotationToggle) mStatusBarWindow.findViewById(R.id.rotation_lock_button);
+        mQuickSettingsButton = mStatusBarWindow.findViewById(R.id.quick_settings_button);
+        mQuickSettingsButton.setOnClickListener(mQuickSettingsButtonListener);
         
         mCarrierLabel = (TextView)mStatusBarWindow.findViewById(R.id.carrier_label);
         mCarrierLabel.setVisibility(mCarrierLabelVisible ? View.VISIBLE : View.INVISIBLE);
@@ -856,7 +860,7 @@ public class PhoneStatusBar extends BaseStatusBar {
             }
         }
 
-        mSettingsButton.setEnabled(isDeviceProvisioned());
+        mQuickSettingsButton.setEnabled(isDeviceProvisioned());
     }
 
     private void reloadAllNotificationIcons() {
@@ -2229,8 +2233,10 @@ public class PhoneStatusBar extends BaseStatusBar {
         }
     };
 
-    private View.OnClickListener mSettingsButtonListener = new View.OnClickListener() {
+    private View.OnClickListener mQuickSettingsButtonListener = new View.OnClickListener() {
         public void onClick(View v) {
+            // Open quick menu settings view
+
             // We take this as a good indicator that Setup is running and we shouldn't
             // allow you to go somewhere else
             if (!isDeviceProvisioned()) return;
@@ -2239,9 +2245,8 @@ public class PhoneStatusBar extends BaseStatusBar {
                 ActivityManagerNative.getDefault().dismissKeyguardOnNextActivity();
             } catch (RemoteException e) {
             }
-            v.getContext().startActivity(new Intent(Settings.ACTION_SETTINGS)
-                    .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-            animateCollapse();
+            mQuickSettingsController = new QuickSettingsController(v);
+            mQuickSettingsController.showLikePopDownMenu(mQuickSettingsButton.getLeft(), mQuickSettingsButton.getWidth());
         }
     };
 
@@ -2257,6 +2262,7 @@ public class PhoneStatusBar extends BaseStatusBar {
                         flags |= CommandQueue.FLAG_EXCLUDE_RECENTS_PANEL;
                     }
                 }
+                if (mQuickSettingsController != null) mQuickSettingsController.dismiss();
                 animateCollapse(flags);
             }
             else if (Intent.ACTION_CONFIGURATION_CHANGED.equals(action)) {

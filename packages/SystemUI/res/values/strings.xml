@@ -306,6 +306,9 @@
     <!-- Content description of the button for showing a settings panel in the notification panel for accessibility (not shown on the screen). [CHAR LIMIT=NONE] -->
     <string name="accessibility_settings_button">System settings.</string>
 
+    <!-- Content description of the button for showing a menu settings panel in the notification panel for accessibility (not shown on the screen). [CHAR LIMIT=NONE] -->
+    <string name="accessibility_quick_settings_button">Quick system settings.</string>
+
     <!-- Content description of the button for showing a notifications panel in the notification panel for accessibility (not shown on the screen). [CHAR LIMIT=NONE] -->
     <string name="accessibility_notifications_button">Notifications.</string>
 
@@ -386,5 +389,13 @@
 
     <!-- Description of the button in the phone-style notification panel that controls auto-rotation, when auto-rotation is off. [CHAR LIMIT=NONE] -->
     <string name="accessibility_rotation_lock_on_portrait">Screen is locked in portrait orientation.</string>
+
+    <!-- Quick settings menu -->
+    <string name="quicksettings_title">Quick Settings</string>
+    <string name="textview_settings_text">Settings Menu</string>
+    <string name="switch_wifi_text">Wi-Fi</string>
+    <string name="switch_bluetooth_text">Bluetooth</string>
+    <string name="switch_gps_text">GPS</string>
+    <string name="switch_sync_text">Sync</string>
 
 </resources>

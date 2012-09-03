@@ -93,5 +93,11 @@
         <!-- Note: must be dp to fit in status bar -->
         <item name="android:textSize">14dp</item>
     </style>
+
+    <style name="Animation.StatusBar.QuickSettings" />
+    <style name="Animation.StatusBar.QuickSettingsPopDownMenu">
+        <item name="@android:windowEnterAnimation">@anim/quicksettings_popupwindow_open</item>
+        <item name="@android:windowExitAnimation">@anim/quicksettings_popupwindow_close</item>
+    </style>
     
 </resources>
