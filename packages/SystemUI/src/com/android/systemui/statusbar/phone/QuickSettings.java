@@ -622,6 +622,38 @@ class QuickSettings {
             parent.addView(bluetoothTile);
         }
 
+        // Torch tile
+        if (mModel.deviceSupportsLed()) {
+        QuickSettingsTileView torchTile = (QuickSettingsTileView)
+                inflater.inflate(R.layout.quick_settings_tile, parent, false);
+        torchTile.setContent(R.layout.quick_settings_tile_torch, inflater);
+        torchTile.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                getService().animateCollapsePanels();
+                Intent intent=new Intent("net.cactii.flash2.TOGGLE_FLASHLIGHT");
+                mContext.sendBroadcast(intent);
+                }
+            });
+        torchTile.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View v) {
+                getService().animateCollapsePanels();
+                Intent intent=new Intent(Intent.ACTION_MAIN);
+                intent.setClassName("net.cactii.flash2", "net.cactii.flash2.MainActivity");
+                startSettingsActivity(intent);
+                return true;
+            }
+        });
+        mModel.addTorchTile(torchTile, new QuickSettingsModel.RefreshCallback() {
+            @Override
+            public void refreshView(QuickSettingsTileView view, State state) {
+                TextView tv = (TextView) view.findViewById(R.id.torch_tileview);
+                tv.setText("TORCH");
+            }
+        });
+        parent.addView(torchTile);
+        }
     }
 
     private void addTemporaryTiles(final ViewGroup parent, final LayoutInflater inflater) {
