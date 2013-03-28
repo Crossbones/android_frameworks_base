@@ -37,7 +37,7 @@ import android.graphics.drawable.LayerDrawable;
 import android.inputmethodservice.InputMethodService;
 import android.os.IBinder;
 import android.os.Message;
-import android.os.RemoteException;
+import android.os.RemoteException; 
 import android.text.TextUtils;
 import android.util.Slog;
 import android.view.Display;
