@@ -5482,7 +5482,7 @@ public class WindowManagerService extends IWindowManager.Stub
     // Called by window manager policy.  Not exposed externally.
     @Override
     public void reboot(String reason) {
-        ShutdownThread.reboot(mContext,reason, true);
+        ShutdownThread.reboot(getUiContext(), null, true);
     }
 
     public void setInputFilter(IInputFilter filter) {
@@ -5490,12 +5490,6 @@ public class WindowManagerService extends IWindowManager.Stub
             throw new SecurityException("Requires FILTER_EVENTS permission");
         }
         mInputManager.setInputFilter(filter);
-    }
-
-    // Called by window manager policy.  Not exposed externally.
-    @Override
-    public void reboot() {
-        ShutdownThread.reboot(getUiContext(), null, true);
     }
 
     public void setCurrentUser(final int newUserId) {
