@@ -448,8 +448,8 @@ public class PhoneStatusBar extends BaseStatusBar {
 
         /* Destroy the old widget before recreating the expanded dialog
            to make sure there are no context issues */
-        if (mRecreating)
-            mPowerWidget.destroyWidget();
+        /* if (mRecreating)
+            mPowerWidget.destroyWidget(); */
 
         mPile = (NotificationRowLayout)mStatusBarWindow.findViewById(R.id.latestItems);
         mPile.setLayoutTransitionsEnabled(false);
